@@ -162,9 +162,19 @@ function draw(){
     ctx.beginPath(); ctx.arc(CX,CY,R,tgt.start,tgt.end); ctx.stroke();
   }
 
-  const x=CX+Math.cos(angle)*R, y=CY+Math.sin(angle)*R;
-  ctx.beginPath(); ctx.arc(x,y,W*0.03,0,TAU);
-  ctx.fillStyle="#00ffc8"; ctx.fill();
+  // pohybující se bod – zelený s jemným bílým okrajem
+  const x = CX + Math.cos(angle) * R;
+  const y = CY + Math.sin(angle) * R;
+  ctx.beginPath();
+  ctx.arc(x, y, W * 0.03, 0, TAU);
+  ctx.fillStyle = "#00ffc8";
+  ctx.fill();
+
+  // jemné ohraničení
+  ctx.lineWidth = W * 0.005;
+  ctx.strokeStyle = "rgba(255,255,255,0.7)";
+  ctx.stroke();
+
 
   if(shakeFrames>0) ctx.restore();
 

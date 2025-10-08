@@ -41,7 +41,8 @@
   </div>
   <div class="row tiny fade">
     <div class="pill">Tip: Klepni, když je mezera pod špičkou trojúhelníku.</div>
-    <div class="pill">Perfect ±2° • Good ±8° • OK ±15°</div>
+    <!-- jednoduchá a srozumitelná legenda bez jednotek -->
+    <div class="pill">PERFECT = exactly at the tip • GOOD = very close • OK = close</div>
   </div>
 </div>
 
@@ -100,7 +101,7 @@
   elBest.textContent = `Rekord: ${best}`;
 
   // visuals
-  let flash = 0, resultText = null, shake = 0, speedScale = 1, jitterT = 0;
+  let flash = 0, resultText = null, shake = 0, speedScale = 1, jitterT = 0, freezeT = 0, pendingAngle = null;
 
   // hráčův ukazatel (trojúhelník) – úhel po obvodu
   let playerAngle = -Math.PI/2; // start na 12 h
@@ -144,17 +145,23 @@
       score += points;
       elScore.textContent = `Skóre: ${score}`;
       flash = 1.0;
-      resultText = {txt: grade.toUpperCase(), color, timer: 0.7};
       if(navigator.vibrate) navigator.vibrate(grade==='perfect'?30:12);
       beep(grade);
 
+      // slovní overlay jen s hodnocením (bez jednotek, bez ukazatele)
+      resultText = { txt: grade.toUpperCase(), color, timer: 0.9 };
+
+      // krátké vizuální zastavení, aby bylo vidět blízkost k šipce
+      freezeT = 0.50;
+
       // ztížení
-      gap = Math.max(gap*0.88, gapMin);
+      gap = Math.max(gap*0.93, gapMin);
       omega *= 1.10;
       omega *= (1 + (Math.random()*0.12 - 0.06)); // drobný nudge
 
-      // posuň trojúhelník na novou náhodnou „hodinu“
-      playerAngle = randomAngleApart(playerAngle, minDeltaPlayer);
+      // po zásahu si novou pozici pouze připravíme, ale přesun provedeme až po skončení freeze
+      pendingAngle = randomAngleApart(playerAngle, minDeltaPlayer);
+
 
     } else {
       gameOver();
@@ -176,7 +183,7 @@
     state='play';
     score=0; elScore.textContent='Skóre: 0';
     angle = -Math.PI/2; omega = deg(160); gap = deg(90);
-    resultText = null; flash=0; shake=0; speedScale=1; jitterT=0;
+    resultText = null; flash=0; shake=0; speedScale=1; jitterT=0; freezeT=0;
     playerAngle = -Math.PI/2; // začni na 12 h
     againBtn.style.display='none';
     bigText.textContent=''; subText.textContent='';
@@ -235,7 +242,19 @@
       const spike = Math.random() < 0.08;
       speedScale = spike ? (1.45 + Math.random()*0.25) : (0.92 + Math.random()*0.2);
     }
-    if(state==='play'){ angle += omega * dt * speedScale; }
+    if(state==='play'){
+  if (freezeT > 0) {
+    freezeT -= dt;
+    // po skončení freeze přepneme trojúhelník na novou pozici
+    if (freezeT <= 0 && pendingAngle !== null) {
+      playerAngle = pendingAngle;
+      pendingAngle = null;
+    }
+  } else {
+    angle += omega * dt * speedScale;
+  }
+}
+
 
     const R = BASE_R, thick = THICK;
     const centerA = angle, a1 = centerA - gap/2, a2 = centerA + gap/2;
@@ -254,7 +273,7 @@
     // trojúhelník (hráčův ukazatel) – náhodná „hodina“, hrot dovnitř
     drawTriangleAtAngle(playerAngle, R);
 
-    // výsledek (Perfect/Good/OK)
+    // slovní výsledek (PERFECT/GOOD/OK)
     if(resultText){
       resultText.timer -= dt;
       const alpha = clamp(resultText.timer/0.7,0,1);

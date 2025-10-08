@@ -1,265 +1,293 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Žrout načítání</title>
-<link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;700&display=swap" rel="stylesheet">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Snap the Gap</title>
 <style>
-  html,body{
-    margin:0;height:100%;overflow:hidden;background:#0d0d0d;
-    display:flex;align-items:center;justify-content:center;
-    font-family:'Oxanium', monospace;color:#00ffc8;user-select:none;touch-action:manipulation;
+  :root{
+    --bg:#0e1213;
+    --fg:#1f2a2e;
+    --ring:#2a3b40;
+    --neon:#2af5d2;
+    --ok:#8fd4ff;
+    --good:#73ffa9;
+    --perfect:#fff7a1;
+    --warn:#ff6b6b;
   }
-  canvas{display:block;}
-  #lives{
-    position:absolute;top:5vh;left:6vw;
-    font-size:clamp(20px,4.5vw,26px);
-  }
-  #timer{
-    position:absolute;top:5vh;right:6vw;
-    font-size:clamp(20px,4.5vw,26px);
-  }
-  #countdown{
-    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    font-size:clamp(40px,14vw,86px);color:#aafff2;background:rgba(0,0,0,.55);
-  }
-  #overlay{
-    position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;
-    background:rgba(0,0,0,.82);gap:.8rem;text-align:center;
-    font-size:clamp(22px,5vw,32px);
-  }
-  #overlay button{
-    background:#00ffc8;color:#000;border:none;border-radius:10px;padding:.7em 1.2em;font-size:1rem;font-family:'Orbitron', monospace;
-  }
+  html,body{height:100%;margin:0;background:var(--bg);color:#cfe7e3;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
+  canvas{display:block;width:100vw;height:100vh;touch-action:manipulation;}
+  .hud{position:fixed;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;
+    padding:clamp(12px,2.5vmin,24px);}
+  .row{display:flex;justify-content:space-between;gap:12px;font-weight:600;letter-spacing:.3px}
+  .pill{background:#0b0f10cc;border:1px solid #1f2a2e;border-radius:999px;padding:.35rem .7rem;backdrop-filter:blur(2px)}
+  .center{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none}
+  .big{font-size:clamp(24px,6vmin,48px);font-weight:800;text-shadow:0 0 20px #0006}
+  .btn{position:fixed;left:50%;bottom:8vh;transform:translateX(-50%);
+    padding:.9rem 1.2rem;border-radius:14px;border:1px solid #2a3b40;background:#101719cc;color:#dff;backdrop-filter:blur(2px);
+    font-weight:700;letter-spacing:.4px;box-shadow:0 6px 30px #0006;cursor:pointer}
+  .btn:active{transform:translateX(-50%) scale(.98)}
+  .fade{opacity:.65}
+  .tiny{font-size:.85rem;opacity:.8}
 </style>
 </head>
 <body>
-  <div id="lives">❤️❤️❤️</div>
-  <div id="timer">00:00.000</div>
-  <div id="countdown">3</div>
-  <div id="overlay">
-    <div id="msg">🎉 Hotovo!</div>
-    <button onclick="restart()">Zkus to znovu</button>
+<canvas id="game"></canvas>
+
+<div class="hud" aria-hidden="true">
+  <div class="row">
+    <div class="pill" id="score">Skóre: 0</div>
+    <div class="pill" id="best">Rekord: 0</div>
   </div>
-  <canvas id="game"></canvas>
+  <div class="row tiny fade">
+    <div class="pill">Tip: Klepni, když je mezera pod špičkou trojúhelníku.</div>
+    <div class="pill">Perfect ±2° • Good ±8° • OK ±15°</div>
+  </div>
+</div>
+
+<div class="center" id="centerText">
+  <div class="big" id="bigText">SNAP<br>THE GAP</div>
+  <div class="tiny fade" id="subText">Klepni kamkoliv pro start</div>
+</div>
+
+<button class="btn" id="againBtn" style="display:none">HRÁT ZNOVU</button>
 
 <script>
-const TAU=Math.PI*2;
-const canvas=document.getElementById('game');
-const ctx=canvas.getContext('2d');
-const livesEl=document.getElementById('lives');
-const timerEl=document.getElementById('timer');
-const cdEl=document.getElementById('countdown');
-const overlay=document.getElementById('overlay');
-const msgEl=document.getElementById('msg');
+(() => {
+  /*** UTIL ***/
+  const TAU = Math.PI*2;
+  const deg = r=>r*Math.PI/180;
+  const now = () => performance.now()/1000;
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  const normAngle = a=>{a%=TAU; if(a>Math.PI) a-=TAU; if(a<-Math.PI) a+=TAU; return a;}
+  const angleDiff = (a,b)=>normAngle(a-b);
+  const rnd = (a,b)=>a + Math.random()*(b-a);
 
-// --- OKAMŽITÉ ZVUKY (Web Audio API) ---
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-let hitBuffer, missBuffer;
-
-async function loadSound(url) {
-  const response = await fetch(url);
-  const arrayBuffer = await response.arrayBuffer();
-  return await audioCtx.decodeAudioData(arrayBuffer);
-}
-
-async function initSounds() {
-  hitBuffer = await loadSound('https://actions.google.com/sounds/v1/cartoon/pop.ogg');
-  missBuffer = await loadSound('https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg');
-}
-
-function playSound(buffer) {
-  const source = audioCtx.createBufferSource();
-  source.buffer = buffer;
-  source.connect(audioCtx.destination);
-  source.start(0);
-}
-// --- konec zvukového systému ---
-
-let W,H,CX,CY,R;
-function resize(){
-  W=H=Math.min(window.innerWidth,window.innerHeight);
-  canvas.width=W; canvas.height=H;
-  CX=W/2; CY=H/2; R=W*0.3;
-}
-resize(); window.addEventListener('resize',resize);
-
-let angle=0,speed=0.025;
-let strikes=0,playing=false,canTap=false;
-let flash=null,flashTimer=0,shakeFrames=0;
-let startTime=0,timeRunning=false,elapsed=0;
-let segments=[],order=[],currentIdx=0;
-
-const MIN_LEN=0.35;
-const MAX_LEN=0.8;
-const HIT_TOL=0.02;
-
-function formatTime(ms){
-  const m=Math.floor(ms/60000);
-  const s=Math.floor((ms%60000)/1000);
-  const x=Math.floor(ms%1000);
-  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(x).padStart(3,'0')}`;
-}
-function setLives(){
-  let s=""; for(let i=0;i<3;i++) s+=(i<3-strikes)?"❤️":"🤍"; livesEl.textContent=s;
-}
-function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
-function allFilled(){return segments.every(s=>s.filled);}
-function currentTarget(){return segments[order[currentIdx]];}
-
-function generateSegments(){
-  segments=[];
-  const parts=[];
-  let sum=0;
-  while(sum<TAU){
-    let len=MIN_LEN+Math.random()*(MAX_LEN-MIN_LEN);
-    if(sum+len>TAU) len=TAU-sum;
-    parts.push(len);
-    sum+=len;
+  /*** CANVAS SETUP ***/
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  let DPR = Math.max(1, Math.min(2, window.devicePixelRatio||1));
+  let CX=0,CY=0,BASE_R=160,THICK=16*DPR;
+  function resize(){
+    const w = Math.floor(window.innerWidth*DPR);
+    const h = Math.floor(window.innerHeight*DPR);
+    canvas.width = w; canvas.height = h;
+    canvas.style.width = '100vw'; canvas.style.height = '100vh';
+    CX = w/2; CY = h/2;
+    BASE_R = Math.min(w,h)/4.2;
+    THICK = Math.max(10*DPR, Math.min(BASE_R*0.17, 18*DPR));
   }
-  if (parts.length>1 && parts[parts.length-1]<MIN_LEN){
-    parts[parts.length-2]+=parts[parts.length-1];
-    parts.pop();
-  }
-  const scale=TAU/sum;
-  let start=Math.random()*TAU;
-  for(const len of parts){
-    const l=len*scale;
-    const end=(start+l)%TAU;
-    segments.push({start:start,end:end,filled:false});
-    start=(start+l)%TAU;
-  }
-  order=shuffle([...segments.keys()]);
-  currentIdx=0;
-}
+  window.addEventListener('resize', resize, {passive:true});
 
-function draw(){
-  if(!playing) return;
-  ctx.clearRect(0,0,W,H);
+  /*** GAME STATE ***/
+  let state = 'menu'; // 'menu' | 'play' | 'over'
+  let tPrev = now();
 
-  if(shakeFrames>0){
-    const amp=W*0.01;
-    ctx.save(); ctx.translate((Math.random()-0.5)*amp,(Math.random()-0.5)*amp);
-    shakeFrames--;
+  // ring
+  let angle = -Math.PI/2;   // střed mezery (rotuje)
+  let omega = deg(160);     // rychlost
+  let gap   = deg(90);      // šířka mezery
+  const gapMin = deg(18);
+
+  // scoring
+  let score = 0;
+  let best = Number(localStorage.getItem('stg_best')||0);
+  const elScore = document.getElementById('score');
+  const elBest  = document.getElementById('best');
+  const bigText = document.getElementById('bigText');
+  const subText = document.getElementById('subText');
+  const againBtn= document.getElementById('againBtn');
+  elBest.textContent = `Rekord: ${best}`;
+
+  // visuals
+  let flash = 0, resultText = null, shake = 0, speedScale = 1, jitterT = 0;
+
+  // hráčův ukazatel (trojúhelník) – úhel po obvodu
+  let playerAngle = -Math.PI/2; // start na 12 h
+  const minDeltaPlayer = deg(40); // minimální skok na novou „hodinu“
+
+  /*** AUDIO ***/
+  const AudioCtx = window.AudioContext||window.webkitAudioContext;
+  let actx = null;
+  function beep(type='ok'){
+    try{
+      if(!actx) actx = new AudioCtx();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      const t = actx.currentTime;
+      let f = 420;
+      if(type==='perfect') f = 840;
+      else if(type==='good') f = 620;
+      else if(type==='fail') f = 120;
+      o.frequency.value = f; o.type = 'sine';
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.25, t+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + (type==='fail'?0.25:0.12));
+      o.connect(g); g.connect(actx.destination);
+      o.start(t); o.stop(t + (type==='fail'?0.26:0.14));
+    }catch(e){}
   }
 
-  ctx.beginPath(); ctx.arc(CX,CY,R,0,TAU);
-  ctx.lineWidth=W*0.03;
-  ctx.strokeStyle=flash?flash:"#333";
-  ctx.stroke();
+  /*** INPUT ***/
+  function onPress(){
+    if(state==='menu'){ startGame(); return; }
+    if(state!=='play') return;
 
-  ctx.lineWidth=W*0.045; ctx.strokeStyle="#00ffc8";
-  for(const s of segments){
-    if(!s.filled) continue;
-    ctx.beginPath(); ctx.arc(CX,CY,R,s.start,s.end); ctx.stroke();
-  }
+    const d = Math.abs(angleDiff(playerAngle, angle));
+    const inside = d <= gap/2;
 
-  const tgt=currentTarget();
-  if (tgt && !tgt.filled) {
-    ctx.lineWidth=W*0.05;
-    ctx.strokeStyle="#555";
-    ctx.beginPath(); ctx.arc(CX,CY,R,tgt.start,tgt.end); ctx.stroke();
-  }
+    if(inside){
+      let grade='ok', points=1, color=getCss('--ok');
+      if(d <= deg(2)){ grade='perfect'; points=3; color=getCss('--perfect'); }
+      else if(d <= deg(8)){ grade='good'; points=2; color=getCss('--good'); }
 
-  // pohybující se bod – zelený s jemným bílým okrajem
-  const x = CX + Math.cos(angle) * R;
-  const y = CY + Math.sin(angle) * R;
-  ctx.beginPath();
-  ctx.arc(x, y, W * 0.03, 0, TAU);
-  ctx.fillStyle = "#00ffc8";
-  ctx.fill();
+      score += points;
+      elScore.textContent = `Skóre: ${score}`;
+      flash = 1.0;
+      resultText = {txt: grade.toUpperCase(), color, timer: 0.7};
+      if(navigator.vibrate) navigator.vibrate(grade==='perfect'?30:12);
+      beep(grade);
 
-  // jemné ohraničení
-  ctx.lineWidth = W * 0.005;
-  ctx.strokeStyle = "rgba(255,255,255,0.7)";
-  ctx.stroke();
+      // ztížení
+      gap = Math.max(gap*0.88, gapMin);
+      omega *= 1.10;
+      omega *= (1 + (Math.random()*0.12 - 0.06)); // drobný nudge
 
+      // posuň trojúhelník na novou náhodnou „hodinu“
+      playerAngle = randomAngleApart(playerAngle, minDeltaPlayer);
 
-  if(shakeFrames>0) ctx.restore();
-
-  angle=(angle+speed)%TAU;
-
-  if(flashTimer>0){ if(--flashTimer<=0) flash=null; }
-
-  if(timeRunning){
-    elapsed=performance.now()-startTime;
-    timerEl.textContent=formatTime(elapsed);
-  }
-
-  requestAnimationFrame(draw);
-}
-
-function inSeg(a,seg){
-  a=(a%TAU+TAU)%TAU;
-  if(seg.start<seg.end) return a>=seg.start-HIT_TOL && a<=seg.end+HIT_TOL;
-  return a>=seg.start-HIT_TOL || a<=seg.end+HIT_TOL;
-}
-
-window.addEventListener('pointerdown', e => {
-  e.preventDefault();
-  if (!playing || !canTap) return;
-  const tgt = currentTarget();
-  if (!tgt) return;
-
-  if (inSeg(angle, tgt)) {
-  tgt.filled = true;
-  playSound(hitBuffer);
-
-
-    if (currentIdx === order.length - 1) {
-      tgt.filled = true;
-      canTap = false;
-      currentIdx++;
-      requestAnimationFrame(() => {
-        timeRunning = false;
-        overlay.style.display = 'flex';
-        msgEl.textContent = `🎉 Hotovo! (${formatTime(elapsed)})`;
-        playing = false;
-      });
     } else {
-      currentIdx++;
-    }
-  } else {
-    strikes++;
-    setLives();
-    playSound(missBuffer);
-    flash = "#ff5050"; flashTimer = 15; shakeFrames = 10;
-    if (strikes >= 3) {
-      timeRunning = false;
-      overlay.style.display = 'flex';
-      msgEl.textContent = `😵 Konec hry!`;
-      playing = false;
+      gameOver();
     }
   }
-}, { passive: false });
+  canvas.addEventListener('pointerdown', onPress, {passive:true});
+  window.addEventListener('keydown', e=>{ if(e.code==='Space'||e.code==='Enter') onPress(); });
+  againBtn.addEventListener('click', ()=> startGame(), {passive:true});
 
-function countdownStart(){
-  timerEl.textContent="00:00.000"; elapsed=0; timeRunning=false;
-  canTap=false; playing=true;
-  cdEl.style.display='flex';
-  let n=3; cdEl.textContent=n;
-  const tick=()=>{
-    if(n>1){ n--; cdEl.textContent=n; setTimeout(tick,700); }
-    else{
-      cdEl.textContent="GO";
-      setTimeout(()=>{
-        cdEl.style.display='none';
-        startTime=performance.now(); timeRunning=true; canTap=true;
-        draw();
-      },400);
+  function randomAngleApart(prev, minDelta){
+    let a = prev, tries = 0;
+    do { a = rnd(-Math.PI, Math.PI); tries++; if(tries>50) break; }
+    while (Math.abs(angleDiff(a, prev)) < minDelta);
+    return a;
+  }
+
+  /*** FLOW ***/
+  function startGame(){
+    state='play';
+    score=0; elScore.textContent='Skóre: 0';
+    angle = -Math.PI/2; omega = deg(160); gap = deg(90);
+    resultText = null; flash=0; shake=0; speedScale=1; jitterT=0;
+    playerAngle = -Math.PI/2; // začni na 12 h
+    againBtn.style.display='none';
+    bigText.textContent=''; subText.textContent='';
+  }
+  function gameOver(){
+    state='over';
+    if(navigator.vibrate) navigator.vibrate([20,40,35]);
+    beep('fail'); shake=12;
+    best = Math.max(best, score);
+    localStorage.setItem('stg_best', best);
+    elBest.textContent = `Rekord: ${best}`;
+    bigText.innerHTML = `KONEC<br><span style="font-weight:700;color:#9fd">Skóre: ${score}</span>`;
+    subText.textContent = 'Klepni na HRÁT ZNOVU';
+    againBtn.style.display='block';
+  }
+
+  /*** RENDER ***/
+  function getCss(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  // Trojúhelník: nejdřív spočítáme pozici na obvodu, pak hrot ke středu
+  function drawTriangleAtAngle(a, rPath){
+    const offset = THICK/2 + 4*DPR;               // těsně nad prstencem
+    const rx = CX + Math.cos(a) * (rPath + offset);
+    const ry = CY + Math.sin(a) * (rPath + offset);
+    const base = THICK * 0.9;
+    const height = THICK * 1.15;
+
+    ctx.save();
+    ctx.translate(rx, ry);
+    ctx.rotate(a + Math.PI);                      // špička do středu
+
+    ctx.beginPath();
+    ctx.moveTo(0, 0);                             // špička (u středu)
+    ctx.lineTo(-height, -base/2);
+    ctx.lineTo(-height,  base/2);
+    ctx.closePath();
+
+    ctx.fillStyle = getCss('--neon');
+    ctx.shadowColor = getCss('--neon'); ctx.shadowBlur = 12;
+    ctx.fill(); ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  function render(dt){
+    // otřes
+    let sx=0, sy=0;
+    if(shake>0){ sx=(Math.random()*2-1)*shake; sy=(Math.random()*2-1)*shake; shake*=0.86; if(shake<0.1) shake=0; }
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.save(); ctx.translate(sx,sy);
+
+    // jitter rychlosti
+    jitterT -= dt;
+    if(jitterT<=0){
+      jitterT = 0.18 + Math.random()*0.22;
+      const spike = Math.random() < 0.08;
+      speedScale = spike ? (1.45 + Math.random()*0.25) : (0.92 + Math.random()*0.2);
     }
-  };
-  setTimeout(tick,700);
-}
+    if(state==='play'){ angle += omega * dt * speedScale; }
 
-function restart(){
-  angle=0; speed=0.025; strikes=0; flash=null; flashTimer=0; shakeFrames=0;
-  setLives(); overlay.style.display='none';
-  generateSegments(); countdownStart();
-}
+    const R = BASE_R, thick = THICK;
+    const centerA = angle, a1 = centerA - gap/2, a2 = centerA + gap/2;
 
-setLives(); generateSegments(); initSounds().then(countdownStart);
+    // základní kruh
+    ctx.strokeStyle = getCss('--ring');
+    ctx.lineWidth = thick; ctx.lineCap='round';
+    ctx.beginPath(); ctx.arc(CX,CY,R,0,TAU); ctx.stroke();
+
+    // neon bez mezery
+    ctx.strokeStyle = getCss('--neon');
+    ctx.shadowColor = getCss('--neon'); ctx.shadowBlur=20;
+    ctx.beginPath(); ctx.arc(CX,CY,R, a2, a1+TAU); ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // trojúhelník (hráčův ukazatel) – náhodná „hodina“, hrot dovnitř
+    drawTriangleAtAngle(playerAngle, R);
+
+    // výsledek (Perfect/Good/OK)
+    if(resultText){
+      resultText.timer -= dt;
+      const alpha = clamp(resultText.timer/0.7,0,1);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = resultText.color;
+      ctx.font = `700 ${Math.round(28*DPR)}px system-ui,Segoe UI,Roboto`;
+      ctx.textAlign='center';
+      ctx.fillText(resultText.txt, CX, CY - R - 28*DPR);
+      ctx.globalAlpha = 1;
+      if(resultText.timer<=0) resultText=null;
+    }
+
+    // záblesk po trefě
+    if(flash>0){
+      const rad = R + (1-flash)*R*0.4;
+      ctx.strokeStyle = getCss('--neon'); ctx.globalAlpha = flash*0.65;
+      ctx.lineWidth = thick*0.6*(flash);
+      ctx.beginPath(); ctx.arc(CX,CY,rad,0,TAU); ctx.stroke();
+      ctx.globalAlpha = 1; flash -= dt*2.2; if(flash<0) flash=0;
+    }
+
+    ctx.restore();
+  }
+
+  /*** LOOP ***/
+  function tick(){ const t=now(); let dt=t-tPrev; tPrev=t; dt=Math.min(0.033,Math.max(0.001,dt)); render(dt); requestAnimationFrame(tick); }
+
+  /*** INIT ***/
+  resize(); render(0); requestAnimationFrame(tick);
+  bigText.textContent = 'SNAP\nTHE GAP';
+  subText.textContent = 'Klepni kamkoliv pro start';
+  window.addEventListener('pointerdown', ()=>{ if(!actx){ try{ actx=new AudioCtx(); }catch(e){} } }, {once:true, passive:true});
+})();
 </script>
 </body>
 </html>

@@ -36,22 +36,22 @@
 
 <div class="hud" aria-hidden="true">
   <div class="row">
-    <div class="pill" id="score">Skóre: 0</div>
-    <div class="pill" id="best">Rekord: 0</div>
+    <div class="pill" id="score">Score: 0</div>
+    <div class="pill" id="best">Record: 0</div>
   </div>
   <div class="row tiny fade">
-    <div class="pill">Tip: Klepni, když je mezera pod špičkou trojúhelníku.</div>
+    <div class="pill">Tap when the triangle is in the middle of the gap.</div>
     <!-- jednoduchá a srozumitelná legenda bez jednotek -->
-    <div class="pill">PERFECT = exactly at the tip • GOOD = very close • OK = close</div>
+    <div class="pill">PERFECT +3 • GOOD +2 • OK +1</div>
   </div>
 </div>
 
 <div class="center" id="centerText">
   <div class="big" id="bigText">SNAP<br>THE GAP</div>
-  <div class="tiny fade" id="subText">Klepni kamkoliv pro start</div>
+  <div class="tiny fade" id="subText">TAP anywhere start</div>
 </div>
 
-<button class="btn" id="againBtn" style="display:none">HRÁT ZNOVU</button>
+<button class="btn" id="againBtn" style="display:none">PLAY AGAIN</button>
 
 <script>
 (() => {
@@ -93,15 +93,18 @@
   // scoring
   let score = 0;
   let best = Number(localStorage.getItem('stg_best')||0);
+  let canTap = true;  // lock vstupu mezi zásahy
   const elScore = document.getElementById('score');
   const elBest  = document.getElementById('best');
   const bigText = document.getElementById('bigText');
   const subText = document.getElementById('subText');
   const againBtn= document.getElementById('againBtn');
-  elBest.textContent = `Rekord: ${best}`;
+  elBest.textContent = `Record: ${best}`;
 
   // visuals
   let flash = 0, resultText = null, shake = 0, speedScale = 1, jitterT = 0, freezeT = 0, pendingAngle = null;
+  let shareBtn = null;
+  let perfectStreak = 0, goodStreak = 0;
 
   // hráčův ukazatel (trojúhelník) – úhel po obvodu
   let playerAngle = -Math.PI/2; // start na 12 h
@@ -129,10 +132,53 @@
     }catch(e){}
   }
 
+  // Score *3 kdyz perfect je 3x po sobě
+  function streakSound(){
+  try{
+    if(!actx) actx = new AudioCtx();
+    const t = actx.currentTime;
+
+    // krátká „výherní“ glissanda
+    const o = actx.createOscillator();
+    const g = actx.createGain();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(520, t);
+    o.frequency.exponentialRampToValueAtTime(1040, t + 0.10);
+
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.4, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+
+    o.connect(g); g.connect(actx.destination);
+    o.start(t); o.stop(t + 0.3);
+  }catch(e){}
+}
+
+// Score *2 kdyz good je 3x po sobě
+function streakSound2(){ // jemnější pro ×2
+  try{
+    if(!actx) actx = new AudioCtx();
+    const t = actx.currentTime;
+    const o = actx.createOscillator();
+    const g = actx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(480, t);
+    o.frequency.exponentialRampToValueAtTime(720, t + 0.08);
+
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.3, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+
+    o.connect(g); g.connect(actx.destination);
+    o.start(t); o.stop(t + 0.24);
+  }catch(e){}
+}
+
+
   /*** INPUT ***/
   function onPress(){
-    if(state==='menu'){ startGame(); return; }
-    if(state!=='play') return;
+  if(state==='menu'){ startGame(); return; }
+  if(state!=='play' || !canTap) return;  // <- blokuj, když je lock
 
     const d = Math.abs(angleDiff(playerAngle, angle));
     const inside = d <= gap/2;
@@ -143,13 +189,48 @@
       else if(d <= deg(8)){ grade='good'; points=2; color=getCss('--good'); }
 
       score += points;
-      elScore.textContent = `Skóre: ${score}`;
+      canTap = false;  // odteď blokuj další tapy, dokud neskončí freeze a neposuneme šipku
+      elScore.textContent = `Score: ${score}`;
+      // --- série přesně 3 po sobě: PERFECT => ×3, GOOD => ×2 ---
+if (grade === 'perfect') {
+  perfectStreak++;
+  goodStreak = 0;          // PERFECT neroste GOOD sérii
+} else if (grade === 'good') {
+  goodStreak++;
+  perfectStreak = 0;       // GOOD neroste PERFECT sérii
+} else {
+  // OK nebo miss (do této větve se miss nedostane, ale pro jistotu)
+  goodStreak = 0;
+  perfectStreak = 0;
+}
+
+// vyhodnocení přesně trojice (blokově, bez překrývání)
+if (perfectStreak === 3) {
+  perfectStreak = 0;                 // reset série (bere se jen přesně trojice)
+  score = score * 3;                 // ×3 za 3× PERFECT
+  elScore.textContent = `Score: ${score}`;
+  if(navigator.vibrate) navigator.vibrate([25, 35, 25, 35]);
+  streakSound();                     // „výherní“ zvuk pro ×3 (z minula)
+  resultText = { txt: 'SCORE ×3', color: getCss('--perfect'), timer: 1.0 };
+} else if (goodStreak === 3) {
+  goodStreak = 0;                    // reset série
+  score = score * 2;                 // ×2 za 3× GOOD
+  elScore.textContent = `Score: ${score}`;
+  if(navigator.vibrate) navigator.vibrate([18, 22, 18]);
+  streakSound2();                    // jemnější zvuk pro ×2
+  resultText = { txt: 'SCORE ×2', color: getCss('--good'), timer: 1.0 };
+}
+
+
       flash = 1.0;
       if(navigator.vibrate) navigator.vibrate(grade==='perfect'?30:12);
       beep(grade);
 
       // slovní overlay jen s hodnocením (bez jednotek, bez ukazatele)
+      if (!resultText) { // nepřepiš "SCORE ×2/×3", pokud právě běží
       resultText = { txt: grade.toUpperCase(), color, timer: 0.9 };
+      }
+
 
       // krátké vizuální zastavení, aby bylo vidět blízkost k šipce
       freezeT = 0.50;
@@ -168,7 +249,7 @@
     }
   }
   canvas.addEventListener('pointerdown', onPress, {passive:true});
-  window.addEventListener('keydown', e=>{ if(e.code==='Space'||e.code==='Enter') onPress(); });
+  window.addEventListener('keydown', e=>{ if (e.repeat) return; if(e.code==='Space'||e.code==='Enter') onPress(); });
   againBtn.addEventListener('click', ()=> startGame(), {passive:true});
 
   function randomAngleApart(prev, minDelta){
@@ -181,7 +262,7 @@
   /*** FLOW ***/
   function startGame(){
     state='play';
-    score=0; elScore.textContent='Skóre: 0';
+    score=0; elScore.textContent='Score: 0';
     angle = -Math.PI/2; omega = deg(160); gap = deg(90);
     resultText = null; flash=0; shake=0; speedScale=1; jitterT=0; freezeT=0;
     playerAngle = -Math.PI/2; // začni na 12 h
@@ -194,10 +275,40 @@
     beep('fail'); shake=12;
     best = Math.max(best, score);
     localStorage.setItem('stg_best', best);
-    elBest.textContent = `Rekord: ${best}`;
-    bigText.innerHTML = `KONEC<br><span style="font-weight:700;color:#9fd">Skóre: ${score}</span>`;
-    subText.textContent = 'Klepni na HRÁT ZNOVU';
+    elBest.textContent = `Record: ${best}`;
+    bigText.innerHTML = `GAME OVER<br><span style="font-weight:700;color:#9fd">Score: ${score}</span>`;
+    subText.textContent = 'Tap PLAY AGAIN';
     againBtn.style.display='block';
+    // --- SHARE SCORE tlačítko ---
+if (shareBtn) { shareBtn.remove(); shareBtn = null; }
+
+shareBtn = document.createElement('button');
+shareBtn.className = 'btn';
+shareBtn.style.bottom = '16vh';
+shareBtn.textContent = 'SHARE SCORE';
+
+const shareText = `Snap the Gap — Score ${score}`;
+const shareData = { title: 'Snap the Gap', text: shareText, url: location.href };
+
+shareBtn.onclick = async () => {
+  try {
+    if (navigator.share) {
+      await navigator.share(shareData);
+    } else if (navigator.clipboard) {
+      await navigator.clipboard.writeText(shareText);
+      const prev = shareBtn.textContent;
+      shareBtn.textContent = 'COPIED!';
+      setTimeout(()=> shareBtn.textContent = prev, 1200);
+    } else {
+      alert(shareText);
+    }
+  } catch(e) { /* uživatel zrušil, neřešíme */ }
+};
+
+document.body.appendChild(shareBtn);
+// při restartu tlačítko uklidíme
+againBtn.addEventListener('click', ()=>{ if(shareBtn){ shareBtn.remove(); shareBtn=null; } }, {once:true});
+
   }
 
   /*** RENDER ***/
@@ -247,8 +358,9 @@
     freezeT -= dt;
     // po skončení freeze přepneme trojúhelník na novou pozici
     if (freezeT <= 0 && pendingAngle !== null) {
-      playerAngle = pendingAngle;
-      pendingAngle = null;
+  playerAngle = pendingAngle;
+  pendingAngle = null;
+  canTap = true;              // <-- znovu povol vstup až po přesunu šipky
     }
   } else {
     angle += omega * dt * speedScale;
@@ -303,8 +415,8 @@
 
   /*** INIT ***/
   resize(); render(0); requestAnimationFrame(tick);
-  bigText.textContent = 'SNAP\nTHE GAP';
-  subText.textContent = 'Klepni kamkoliv pro start';
+  bigText.textContent = 'SNAP THE GAP';
+  subText.textContent = 'Tap anywhere to start';
   window.addEventListener('pointerdown', ()=>{ if(!actx){ try{ actx=new AudioCtx(); }catch(e){} } }, {once:true, passive:true});
 })();
 </script>

@@ -266,7 +266,7 @@
       let f = 420;
       if(type==='perfect') f = 840;
       else if(type==='good') f = 620;
-      else if(type==='fail') f = 120;
+      else if(type==='fail') f = 220;
       o.frequency.value = f; o.type = 'sine';
       g.gain.setValueAtTime(0.0001, t);
       g.gain.exponentialRampToValueAtTime(0.5, t+0.02);
@@ -458,6 +458,12 @@ function handleFirstTapStart(){
 
   function gameOver(){
     fadeOutMusic();
+    // Krátký červený záblesk
+    document.documentElement.style.setProperty('--neon', '#ff6b6b'); // červená
+    setTimeout(() => {
+    document.documentElement.style.setProperty('--neon', '#2af5d2'); // zpět na původní zelenou
+    }, 150);
+
     state='over';
     if(navigator.vibrate) navigator.vibrate([20,40,35]);
     beep('fail'); shake=12;
@@ -645,7 +651,7 @@ function fadeInMusic(duration = 1200) {
   if (!bgMusic) return;
   bgMusic.volume = 0;
   bgMusic.play().catch(()=>{});
-  const targetVol = 0.4;
+  const targetVol = 0.3;
   const steps = 30;
   const stepTime = duration / steps;
   let i = 0;

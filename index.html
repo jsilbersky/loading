@@ -51,10 +51,16 @@
 
     /* HUD = neklikací overlay; paddings respektují safe-area */
     .hud{
-      position:fixed; inset:0; pointer-events:none;
-      display:flex; flex-direction:column; justify-content:space-between;
-      padding: max(12px, var(--sat)) clamp(12px,2.5vmin,24px) max(12px, var(--sab));
+    position:fixed; inset:0; pointer-events:none;
+    display:flex; flex-direction:column; justify-content:space-between;
+
+    /* Přidán větší horní a spodní padding pro lepší rozestupy */
+    padding-top: calc(max(12px, var(--sat)) + 8px);
+    padding-bottom: calc(max(12px, var(--sab)) + 10px);
+    padding-left: clamp(12px,2.5vmin,24px);
+    padding-right: clamp(12px,2.5vmin,24px);
     }
+
     .row{ display:flex; justify-content:space-between; gap:12px; font-weight:600; letter-spacing:.3px }
     .pill{ background:#0b0f10cc; border:1px solid #1f2a2e; border-radius:999px; padding:.35rem .7rem; backdrop-filter:blur(2px) }
 
@@ -97,6 +103,20 @@
     .btn.enabled{ pointer-events:auto; }
 
     .fade{ opacity:.65 } .tiny{ font-size:.85rem; opacity:.8 }
+
+    /* ===== HOW TO bubble ===== */
+.howto{
+  position:fixed; left:50%; transform:translateX(-50%);
+  top: 120px; /* skutečnou pozici přepočítá JS v updateHowtoPos() */
+  max-width: 280px; z-index:5; pointer-events:none;
+  background: rgba(20, 30, 32, 0.92);
+  color:#eaf7f4; border:1px solid rgba(42,245,210,.22);
+  border-radius:14px; padding:12px 14px; text-align:center;
+  box-shadow:0 8px 24px rgba(0,0,0,.35); opacity:1; transition:opacity .25s ease;
+}
+.howto-title{ font-weight:700; letter-spacing:.5px; margin-bottom:4px; font-size:13px; opacity:.9; }
+.howto-body{ font-size:14px; line-height:1.35; }
+.howto.hide{ opacity:0; }
   </style>
 </head>
 <body>
@@ -113,12 +133,10 @@
 
     <!-- Spodní nápověda -->
     <div class="row tiny fade" style="justify-content:center; font-size:.75rem; line-height:1.2;">
-      <div class="pill" style="text-align:center;">
-        Tap when the triangle is in the middle of the gap.<br>
-        <strong style="font-size:.75rem;">PERFECT +3 • GOOD +2 • OK +1</strong><br>
-        <span>Perfect 3 in a row → ×3 • Good 3 in a row → ×2</span>
-      </div>
-    </div>
+  <div class="pill" style="text-align:center;">
+    PERFECT +3 • GOOD +2 • OK +1<br>
+    Perfect 3 in a row → ×3 • Good 3 in a row → ×2
+  </div>
   </div>
 
   <!-- Středový text (pozici doladí JS) -->
@@ -126,6 +144,15 @@
     <div class="big" id="bigText">SNAP<br>THE GAP</div>
     <div class="tiny fade" id="subText">Tap anywhere to start</div>
   </div>
+
+    <!-- HOW TO PLAY bubble -->
+  <div id="howto" class="howto" aria-live="polite" aria-hidden="false">
+  <div class="howto-title">HOW TO PLAY</div>
+  <div class="howto-body">
+    Tap when the <span style="color:var(--neon);font-weight:700;">triangle</span> is in the middle of the gap.
+  </div>
+</div>
+
 
   <!-- CTA tlačítka -->
   <button class="btn btn-main btn--again" id="againBtn">PLAY AGAIN</button>
@@ -178,6 +205,7 @@
     if (centerWrap) {
       centerWrap.style.top = ( (CY / (h||1)) * 100 ) + 'vh';
     }
+    updateHowtoPos();
   }
 
   window.addEventListener('resize', resize, { passive:true });
@@ -209,6 +237,7 @@
   const subText = document.getElementById('subText');
   const againBtn= document.getElementById('againBtn');
   const shareBtn= document.getElementById('shareBtn');
+  const howto   = document.getElementById('howto');
   elBest.textContent = `Record: ${best}`;
 
   // vizuály
@@ -240,7 +269,7 @@
       else if(type==='fail') f = 120;
       o.frequency.value = f; o.type = 'sine';
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.25, t+0.02);
+      g.gain.exponentialRampToValueAtTime(0.5, t+0.02);
       g.gain.exponentialRampToValueAtTime(0.0001, t + (type==='fail'?0.25:0.12));
       o.connect(g); g.connect(actx.destination);
       o.start(t); o.stop(t + (type==='fail'?0.26:0.14));
@@ -257,7 +286,7 @@
       o.frequency.setValueAtTime(520, t);
       o.frequency.exponentialRampToValueAtTime(1040, t + 0.10);
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.4, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.7, t + 0.02);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
       o.connect(g); g.connect(actx.destination);
       o.start(t); o.stop(t + 0.3);
@@ -274,7 +303,7 @@
       o.frequency.setValueAtTime(480, t);
       o.frequency.exponentialRampToValueAtTime(720, t + 0.08);
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.3, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.7, t + 0.02);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
       o.connect(g); g.connect(actx.destination);
       o.start(t); o.stop(t + 0.24);
@@ -286,7 +315,7 @@
   ========================== */
   function onPress(){
     // start jen z menu
-    if (state === 'menu'){ startGame(); return; }
+    if (state === 'menu'){ handleFirstTapStart(); return; }
     // během hry ignoruj, když je zamknuto
     if (state !== 'play' || !canTap) return;
 
@@ -367,10 +396,53 @@
     return a;
   }
 
+  // —— HOW TO overlay helpers ——
+
+// Umístit bublinu nad špičku trojúhelníku
+function updateHowtoPos(){
+  if(!howto) return;
+
+  // výška horních pilulek
+  const topHUD = 60 * DPR;          // odhad výšky řádku s pilulkami
+  const spaceTop = topHUD / DPR;    // přepočet na CSS px
+  const circleTop = (CY - BASE_R) / DPR;  // horní okraj kruhu
+
+  // výška bubliny: přesně uprostřed mezi horními pilulkami a horním okrajem kruhu
+  let topPx = spaceTop + (circleTop - spaceTop) * 0.4;
+
+  // ochrana proti překrytí (nepřes horní hranu)
+  topPx = Math.max(12, topPx);
+
+  howto.style.top = `${topPx}px`;
+}
+
+// Na start obrazovky srovnat šipku doprostřed mezery („like this“)
+function alignIdleLikeThis(){
+  playerAngle = angle; // střed mezery = 'angle'
+}
+
+// Zobrazit bublinu
+function maybeShowHowto(){
+  if(!howto) return;
+  howto.classList.remove('hide');   // vždy ukázat na startu
+  alignIdleLikeThis();
+  updateHowtoPos();
+}
+
+
+// První tap na startu: schovat bublinu a začít hru
+function handleFirstTapStart(){
+  if(howto) howto.classList.add('hide');  // schovej jen pro právě startovanou hru
+  playMusic();
+  startGame();
+}
+
   /* =========================
      FLOW
   ========================== */
   function startGame(){
+    fadeInMusic();
+    if(howto) howto.classList.add('hide');
     state='play';
     score=0; elScore.textContent='Score: 0';
     angle = -Math.PI/2; omega = deg(160); gap = deg(90);
@@ -385,6 +457,7 @@
   }
 
   function gameOver(){
+    fadeOutMusic();
     state='over';
     if(navigator.vibrate) navigator.vibrate([20,40,35]);
     beep('fail'); shake=12;
@@ -524,10 +597,66 @@
   resize(); render(0); requestAnimationFrame(tick);
   bigText.textContent = 'SNAP THE GAP';
   subText.textContent = 'Tap anywhere to start';
+  maybeShowHowto();
+  updateHowtoPos();
+  alignIdleLikeThis();
+
 
   // iOS/Chrome: první tap inicializuje AudioContext
   window.addEventListener('pointerdown', ()=>{ if(!actx){ try{ actx=new AudioCtx(); }catch(e){} } }, {once:true, passive:true});
 })();
+
+/* =========================
+   BACKGROUND MUSIC
+========================== */
+let bgMusic = null;
+let fadeInterval = null;
+
+function playMusic() {
+  if (!bgMusic) {
+    bgMusic = new Audio('music.mp3');
+    bgMusic.loop = true;
+    bgMusic.volume = 0.25; // tichá úroveň
+  }
+  // restartuj, pokud byla pauznutá
+  if (bgMusic.paused) bgMusic.play().catch(()=>{});
+}
+
+function fadeOutMusic(duration = 1500) {
+  if (!bgMusic) return;
+  const startVol = bgMusic.volume;
+  const steps = 30;
+  const stepTime = duration / steps;
+  let i = 0;
+  clearInterval(fadeInterval);
+  fadeInterval = setInterval(() => {
+    i++;
+    bgMusic.volume = Math.max(0, startVol * (1 - i / steps));
+    if (i >= steps) {
+      clearInterval(fadeInterval);
+      bgMusic.pause();
+      bgMusic.currentTime = 0; // reset pozice
+      bgMusic.volume = startVol; // připrav pro další hru
+    }
+  }, stepTime);
+}
+
+function fadeInMusic(duration = 1200) {
+  if (!bgMusic) return;
+  bgMusic.volume = 0;
+  bgMusic.play().catch(()=>{});
+  const targetVol = 0.4;
+  const steps = 30;
+  const stepTime = duration / steps;
+  let i = 0;
+  clearInterval(fadeInterval);
+  fadeInterval = setInterval(() => {
+    i++;
+    bgMusic.volume = Math.min(targetVol, (targetVol * i) / steps);
+    if (i >= steps) clearInterval(fadeInterval);
+  }, stepTime);
+}
+
 </script>
 </body>
 </html>

@@ -4,7 +4,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Snap the Gap</title>
+
 <style>
+  /* ====== TÉMA / BARVY ====== */
   :root{
     --bg:#0e1213;
     --fg:#1f2a2e;
@@ -15,104 +17,179 @@
     --perfect:#fff7a1;
     --warn:#ff6b6b;
   }
-  html,body{height:100%;margin:0;background:var(--bg);color:#cfe7e3;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
-  canvas{display:block;width:100vw;height:100vh;touch-action:manipulation;}
-  .hud{position:fixed;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;
-    padding:clamp(12px,2.5vmin,24px);}
-  .row{display:flex;justify-content:space-between;gap:12px;font-weight:600;letter-spacing:.3px}
-  .pill{background:#0b0f10cc;border:1px solid #1f2a2e;border-radius:999px;padding:.35rem .7rem;backdrop-filter:blur(2px)}
-  .center{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none}
-  .big{font-size:clamp(24px,6vmin,48px);font-weight:800;text-shadow:0 0 20px #0006}
-  .btn{position:fixed;left:50%;bottom:8vh;transform:translateX(-50%);
-    padding:.9rem 1.2rem;border-radius:14px;border:1px solid #2a3b40;background:#101719cc;color:#dff;backdrop-filter:blur(2px);
-    font-weight:700;letter-spacing:.4px;box-shadow:0 6px 30px #0006;cursor:pointer}
-  .btn:active{transform:translateX(-50%) scale(.98)}
-  .fade{opacity:.65}
-  .tiny{font-size:.85rem;opacity:.8}
+
+  /* ====== ZÁKLAD ====== */
+  html,body{
+    height:100%; margin:0; background:var(--bg); color:#cfe7e3;
+    font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+  }
+  canvas{ display:block; width:100vw; height:100vh; touch-action:manipulation; }
+
+  /* HUD je neklikací overlay (score, texty…) */
+  .hud{
+    position:fixed; inset:0; pointer-events:none;
+    display:flex; flex-direction:column; justify-content:space-between;
+    padding:clamp(12px,2.5vmin,24px);
+  }
+  /* ale tlačítka mají být klikatelná */
+  button{ pointer-events:auto; }
+
+  .row{ display:flex; justify-content:space-between; gap:12px; font-weight:600; letter-spacing:.3px }
+  .pill{ background:#0b0f10cc; border:1px solid #1f2a2e; border-radius:999px; padding:.35rem .7rem; backdrop-filter:blur(2px) }
+
+  /* Text uprostřed obrazovky – zarovnáme dynamicky podle CY v JS */
+  .center{
+    position:fixed; left:50%; top:50%;
+    transform:translate(-50%,-50%); text-align:center; pointer-events:none;
+  }
+  .big{ font-size:clamp(24px,6vmin,48px); font-weight:800; text-shadow:0 0 20px #0006 }
+
+/* ====== TLAČÍTKA ====== */
+.btn{
+  position:fixed; left:50%; transform:translateX(-50%);
+  width:clamp(160px,60%,220px);
+  text-align:center;
+  padding:.9rem 1.4rem;
+  border-radius:14px;
+  font-weight:700; letter-spacing:.4px;
+  cursor:pointer; font-family:inherit; text-transform:uppercase;
+  backdrop-filter:blur(2px); box-shadow:0 6px 30px #0006;
+  /* default: neviditelné a NEklikací */
+  opacity:0; pointer-events:none; 
+  transition:opacity .25s ease;
+}
+.btn-main{ background:var(--neon); color:#000; border:none; box-shadow:0 0 20px rgba(42,245,210,.4); }
+.btn-secondary{ background:rgba(42,245,210,.08); color:#b8d4cf; border:1px solid rgba(42,245,210,.15); }
+.btn + .btn{ margin-top:1.2rem; }
+.btn:active{ transform:translateX(-50%) scale(.96); }
+
+/* .show = jen zobrazit (stále NEklikací) */
+.btn.show{ opacity:1; }
+
+/* .enabled = povolit kliknutí */
+.btn.enabled{ pointer-events:auto; }
+
 </style>
 </head>
 <body>
+
+<!-- Malovací plátno -->
 <canvas id="game"></canvas>
 
+<!-- HUD (neklikací) -->
 <div class="hud" aria-hidden="true">
   <div class="row">
     <div class="pill" id="score">Score: 0</div>
     <div class="pill" id="best">Record: 0</div>
   </div>
-  <div class="row tiny fade">
-    <div class="pill">Tap when the triangle is in the middle of the gap.</div>
-    <!-- jednoduchá a srozumitelná legenda bez jednotek -->
-    <div class="pill">PERFECT +3 • GOOD +2 • OK +1</div>
+
+  <!-- Spodní info: vše v jedné pill (3 řádky) -->
+  <div class="row tiny fade" style="justify-content:center; font-size:.75rem; line-height:1.2;">
+    <div class="pill" style="text-align:center;">
+      Tap when the triangle is in the middle of the gap.<br>
+      <strong style="font-size:.75rem;">PERFECT +3 • GOOD +2 • OK +1</strong><br>
+      <span>Perfect 3 in a row → ×3 • Good 3 in a row → ×2</span>
+    </div>
   </div>
 </div>
 
+<!-- Středový text (zarovnání doladíme v resize() podle CY) -->
 <div class="center" id="centerText">
   <div class="big" id="bigText">SNAP<br>THE GAP</div>
-  <div class="tiny fade" id="subText">TAP anywhere start</div>
+  <div class="tiny fade" id="subText">Tap anywhere to start</div>
 </div>
 
-<button class="btn" id="againBtn" style="display:none">PLAY AGAIN</button>
+<!-- Hlavní CTA + sekundární akce (zprvu skryté) -->
+<button class="btn btn-main" id="againBtn">PLAY AGAIN</button>
+<button class="btn btn-secondary" id="shareBtn">SHARE SCORE</button>
 
 <script>
 (() => {
-  /*** UTIL ***/
-  const TAU = Math.PI*2;
-  const deg = r=>r*Math.PI/180;
-  const now = () => performance.now()/1000;
-  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-  const normAngle = a=>{a%=TAU; if(a>Math.PI) a-=TAU; if(a<-Math.PI) a+=TAU; return a;}
-  const angleDiff = (a,b)=>normAngle(a-b);
-  const rnd = (a,b)=>a + Math.random()*(b-a);
+  /* ===========================
+     UTIL FUNKCE A KONSTANTY
+  ============================ */
+  const TAU = Math.PI * 2;
+  const deg = r => r * Math.PI / 180;
+  const now = () => performance.now() / 1000;
+  const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+  const normAngle = a => { a%=TAU; if(a>Math.PI) a-=TAU; if(a<-Math.PI) a+=TAU; return a; }
+  const angleDiff = (a,b) => normAngle(a - b);
+  const rnd = (a,b) => a + Math.random() * (b - a);
 
-  /*** CANVAS SETUP ***/
+  /* ===========================
+     CANVAS SETUP
+  ============================ */
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
-  let DPR = Math.max(1, Math.min(2, window.devicePixelRatio||1));
-  let CX=0,CY=0,BASE_R=160,THICK=16*DPR;
+  let DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+  let CX=0, CY=0, BASE_R=160, THICK=16*DPR;
+
   function resize(){
-    const w = Math.floor(window.innerWidth*DPR);
-    const h = Math.floor(window.innerHeight*DPR);
+    const w = Math.floor(window.innerWidth * DPR);
+    const h = Math.floor(window.innerHeight * DPR);
+
     canvas.width = w; canvas.height = h;
     canvas.style.width = '100vw'; canvas.style.height = '100vh';
-    CX = w/2; CY = h/2;
-    BASE_R = Math.min(w,h)/4.2;
-    THICK = Math.max(10*DPR, Math.min(BASE_R*0.17, 18*DPR));
-  }
-  window.addEventListener('resize', resize, {passive:true});
 
-  /*** GAME STATE ***/
+    CX = w/2;
+
+    /* Posuneme herní střed o něco výš (lepší pro palec) */
+    CY = h / 2.2;
+
+    BASE_R = Math.min(w, h) / 4.2;
+    THICK = Math.max(10*DPR, Math.min(BASE_R*0.17, 18*DPR));
+
+    /* Sladíme středový HTML text s herním středem */
+    const centerWrap = document.getElementById('centerText');
+    if(centerWrap){
+      const topPercent = (CY / h) * 100;       // CY přepočítáme na vh
+      centerWrap.style.top = topPercent + 'vh';
+    }
+  }
+  window.addEventListener('resize', resize, { passive:true });
+
+  /* ===========================
+     HERNÍ STAV
+  ============================ */
   let state = 'menu'; // 'menu' | 'play' | 'over'
   let tPrev = now();
 
-  // ring
-  let angle = -Math.PI/2;   // střed mezery (rotuje)
-  let omega = deg(160);     // rychlost
-  let gap   = deg(90);      // šířka mezery
+  // kroužek
+  let angle = -Math.PI/2;  // střed mezery
+  let omega = deg(160);    // rychlost
+  let gap   = deg(90);     // šířka mezery
   const gapMin = deg(18);
 
-  // scoring
+  // skóre
   let score = 0;
-  let best = Number(localStorage.getItem('stg_best')||0);
+  let best = Number(localStorage.getItem('stg_best') || 0);
   let canTap = true;  // lock vstupu mezi zásahy
+
+  // UI prvky
   const elScore = document.getElementById('score');
   const elBest  = document.getElementById('best');
   const bigText = document.getElementById('bigText');
   const subText = document.getElementById('subText');
   const againBtn= document.getElementById('againBtn');
+  const shareBtn= document.getElementById('shareBtn');
+
   elBest.textContent = `Record: ${best}`;
 
-  // visuals
+  // vizuály
   let flash = 0, resultText = null, shake = 0, speedScale = 1, jitterT = 0, freezeT = 0, pendingAngle = null;
-  let shareBtn = null;
   let perfectStreak = 0, goodStreak = 0;
+  let uiArmed = false; // jestli už mohou tlačítka reagovat
 
   // hráčův ukazatel (trojúhelník) – úhel po obvodu
-  let playerAngle = -Math.PI/2; // start na 12 h
-  const minDeltaPlayer = deg(40); // minimální skok na novou „hodinu“
+  let playerAngle = -Math.PI/2;          // start na 12 h
+  const minDeltaPlayer = deg(40);        // minimální skok na novou „hodinu“
 
-  /*** AUDIO ***/
-  const AudioCtx = window.AudioContext||window.webkitAudioContext;
+  /* ===========================
+     AUDIO
+  ============================ */
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
   let actx = null;
+
   function beep(type='ok'){
     try{
       if(!actx) actx = new AudioCtx();
@@ -131,54 +208,49 @@
       o.start(t); o.stop(t + (type==='fail'?0.26:0.14));
     }catch(e){}
   }
+  function streakSound(){ // ×3 – výraznější
+    try{
+      if(!actx) actx = new AudioCtx();
+      const t = actx.currentTime;
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(520, t);
+      o.frequency.exponentialRampToValueAtTime(1040, t + 0.10);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.4, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+      o.connect(g); g.connect(actx.destination);
+      o.start(t); o.stop(t + 0.3);
+    }catch(e){}
+  }
+  function streakSound2(){ // ×2 – jemnější
+    try{
+      if(!actx) actx = new AudioCtx();
+      const t = actx.currentTime;
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(480, t);
+      o.frequency.exponentialRampToValueAtTime(720, t + 0.08);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.3, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+      o.connect(g); g.connect(actx.destination);
+      o.start(t); o.stop(t + 0.24);
+    }catch(e){}
+  }
 
-  // Score *3 kdyz perfect je 3x po sobě
-  function streakSound(){
-  try{
-    if(!actx) actx = new AudioCtx();
-    const t = actx.currentTime;
-
-    // krátká „výherní“ glissanda
-    const o = actx.createOscillator();
-    const g = actx.createGain();
-    o.type = 'triangle';
-    o.frequency.setValueAtTime(520, t);
-    o.frequency.exponentialRampToValueAtTime(1040, t + 0.10);
-
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.4, t + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
-
-    o.connect(g); g.connect(actx.destination);
-    o.start(t); o.stop(t + 0.3);
-  }catch(e){}
-}
-
-// Score *2 kdyz good je 3x po sobě
-function streakSound2(){ // jemnější pro ×2
-  try{
-    if(!actx) actx = new AudioCtx();
-    const t = actx.currentTime;
-    const o = actx.createOscillator();
-    const g = actx.createGain();
-    o.type = 'sine';
-    o.frequency.setValueAtTime(480, t);
-    o.frequency.exponentialRampToValueAtTime(720, t + 0.08);
-
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.3, t + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
-
-    o.connect(g); g.connect(actx.destination);
-    o.start(t); o.stop(t + 0.24);
-  }catch(e){}
-}
-
-
-  /*** INPUT ***/
+  /* ===========================
+     VSTUPY
+  ============================ */
   function onPress(){
-  if(state==='menu'){ startGame(); return; }
-  if(state!=='play' || !canTap) return;  // <- blokuj, když je lock
+  // Tap povolen jen v menu (spuštění hry) nebo při hře samotné
+  if (state === 'menu') { 
+    startGame(); 
+    return; 
+  }
+  if (state !== 'play' || !canTap) return; // blokace mezi zásahy
 
     const d = Math.abs(angleDiff(playerAngle, angle));
     const inside = d <= gap/2;
@@ -189,68 +261,81 @@ function streakSound2(){ // jemnější pro ×2
       else if(d <= deg(8)){ grade='good'; points=2; color=getCss('--good'); }
 
       score += points;
-      canTap = false;  // odteď blokuj další tapy, dokud neskončí freeze a neposuneme šipku
+      canTap = false;
       elScore.textContent = `Score: ${score}`;
+
       // --- série přesně 3 po sobě: PERFECT => ×3, GOOD => ×2 ---
-if (grade === 'perfect') {
-  perfectStreak++;
-  goodStreak = 0;          // PERFECT neroste GOOD sérii
-} else if (grade === 'good') {
-  goodStreak++;
-  perfectStreak = 0;       // GOOD neroste PERFECT sérii
-} else {
-  // OK nebo miss (do této větve se miss nedostane, ale pro jistotu)
-  goodStreak = 0;
-  perfectStreak = 0;
-}
+      if (grade === 'perfect'){ perfectStreak++; goodStreak = 0; }
+      else if (grade === 'good'){ goodStreak++; perfectStreak = 0; }
+      else { goodStreak = 0; perfectStreak = 0; }
 
-// vyhodnocení přesně trojice (blokově, bez překrývání)
-if (perfectStreak === 3) {
-  perfectStreak = 0;                 // reset série (bere se jen přesně trojice)
-  score = score * 3;                 // ×3 za 3× PERFECT
-  elScore.textContent = `Score: ${score}`;
-  if(navigator.vibrate) navigator.vibrate([25, 35, 25, 35]);
-  streakSound();                     // „výherní“ zvuk pro ×3 (z minula)
-  resultText = { txt: 'SCORE ×3', color: getCss('--perfect'), timer: 1.0 };
-} else if (goodStreak === 3) {
-  goodStreak = 0;                    // reset série
-  score = score * 2;                 // ×2 za 3× GOOD
-  elScore.textContent = `Score: ${score}`;
-  if(navigator.vibrate) navigator.vibrate([18, 22, 18]);
-  streakSound2();                    // jemnější zvuk pro ×2
-  resultText = { txt: 'SCORE ×2', color: getCss('--good'), timer: 1.0 };
-}
-
+      if (perfectStreak === 3){
+        perfectStreak = 0;
+        score = score * 3;
+        elScore.textContent = `Score: ${score}`;
+        if(navigator.vibrate) navigator.vibrate([25, 35, 25, 35]);
+        streakSound();
+        resultText = { txt: 'SCORE ×3', color: getCss('--perfect'), timer: 1.0 };
+      } else if (goodStreak === 3){
+        goodStreak = 0;
+        score = score * 2;
+        elScore.textContent = `Score: ${score}`;
+        if(navigator.vibrate) navigator.vibrate([18, 22, 18]);
+        streakSound2();
+        resultText = { txt: 'SCORE ×2', color: getCss('--good'), timer: 1.0 };
+      }
 
       flash = 1.0;
       if(navigator.vibrate) navigator.vibrate(grade==='perfect'?30:12);
       beep(grade);
 
-      // slovní overlay jen s hodnocením (bez jednotek, bez ukazatele)
-      if (!resultText) { // nepřepiš "SCORE ×2/×3", pokud právě běží
-      resultText = { txt: grade.toUpperCase(), color, timer: 0.9 };
+      // Jednorázový overlay s textem hodnocení
+      if (!resultText){
+        resultText = { txt: grade.toUpperCase(), color, timer: 0.9 };
       }
 
-
-      // krátké vizuální zastavení, aby bylo vidět blízkost k šipce
+      // krátká pauza + příprava nové pozice
       freezeT = 0.50;
-
-      // ztížení
       gap = Math.max(gap*0.93, gapMin);
       omega *= 1.10;
-      omega *= (1 + (Math.random()*0.12 - 0.06)); // drobný nudge
-
-      // po zásahu si novou pozici pouze připravíme, ale přesun provedeme až po skončení freeze
+      omega *= (1 + (Math.random()*0.12 - 0.06));
       pendingAngle = randomAngleApart(playerAngle, minDeltaPlayer);
-
 
     } else {
       gameOver();
     }
   }
-  canvas.addEventListener('pointerdown', onPress, {passive:true});
-  window.addEventListener('keydown', e=>{ if (e.repeat) return; if(e.code==='Space'||e.code==='Enter') onPress(); });
-  againBtn.addEventListener('click', ()=> startGame(), {passive:true});
+
+  canvas.addEventListener('pointerdown', onPress, { passive:true });
+  window.addEventListener('keydown', e=>{
+    if (e.repeat) return;
+    if(e.code==='Space' || e.code==='Enter') onPress();
+  });
+
+  // Kliknutí na tlačítka – připojeno jednou a mimo gameOver()
+againBtn.addEventListener('click', (e) => {
+  if (!uiArmed || state !== 'over') { e.preventDefault(); e.stopPropagation(); return; }
+  againBtn.classList.remove('show','enabled');
+  shareBtn.classList.remove('show','enabled');
+  startGame();
+});
+
+shareBtn.addEventListener('click', async (e) => {
+  if (!uiArmed || state !== 'over') { e.preventDefault(); e.stopPropagation(); return; }
+  const shareText = `Snap the Gap — Score ${score}`;
+  const shareData = { title:'Snap the Gap', text:shareText, url: location.href };
+  try{
+    if (navigator.share) await navigator.share(shareData);
+    else if (navigator.clipboard){
+      await navigator.clipboard.writeText(shareText);
+      const prev = shareBtn.textContent;
+      shareBtn.textContent = 'COPIED!';
+      setTimeout(()=> shareBtn.textContent = prev, 1200);
+    } else {
+      alert(shareText);
+    }
+  }catch(e){}
+});
 
   function randomAngleApart(prev, minDelta){
     let a = prev, tries = 0;
@@ -259,62 +344,67 @@ if (perfectStreak === 3) {
     return a;
   }
 
-  /*** FLOW ***/
-  function startGame(){
-    state='play';
-    score=0; elScore.textContent='Score: 0';
-    angle = -Math.PI/2; omega = deg(160); gap = deg(90);
-    resultText = null; flash=0; shake=0; speedScale=1; jitterT=0; freezeT=0;
-    playerAngle = -Math.PI/2; // začni na 12 h
-    againBtn.style.display='none';
-    bigText.textContent=''; subText.textContent='';
-  }
-  function gameOver(){
-    state='over';
-    if(navigator.vibrate) navigator.vibrate([20,40,35]);
-    beep('fail'); shake=12;
-    best = Math.max(best, score);
-    localStorage.setItem('stg_best', best);
-    elBest.textContent = `Record: ${best}`;
-    bigText.innerHTML = `GAME OVER<br><span style="font-weight:700;color:#9fd">Score: ${score}</span>`;
-    subText.textContent = 'Tap PLAY AGAIN';
-    againBtn.style.display='block';
-    // --- SHARE SCORE tlačítko ---
-if (shareBtn) { shareBtn.remove(); shareBtn = null; }
+  /* ===========================
+     FLOW
+  ============================ */
+function startGame(){
+  state = 'play';
+  score = 0; elScore.textContent = 'Score: 0';
+  angle = -Math.PI/2; omega = deg(160); gap = deg(90);
+  resultText = null; flash = 0; shake = 0; speedScale = 1; jitterT = 0; freezeT = 0;
+  playerAngle = -Math.PI/2;
 
-shareBtn = document.createElement('button');
-shareBtn.className = 'btn';
-shareBtn.style.bottom = '16vh';
-shareBtn.textContent = 'SHARE SCORE';
+  uiArmed = false;
+  againBtn.classList.remove('show','enabled');
+  shareBtn.classList.remove('show','enabled');
 
-const shareText = `Snap the Gap — Score ${score}`;
-const shareData = { title: 'Snap the Gap', text: shareText, url: location.href };
+  bigText.textContent = '';
+  subText.textContent = '';
+}
 
-shareBtn.onclick = async () => {
-  try {
-    if (navigator.share) {
-      await navigator.share(shareData);
-    } else if (navigator.clipboard) {
-      await navigator.clipboard.writeText(shareText);
-      const prev = shareBtn.textContent;
-      shareBtn.textContent = 'COPIED!';
-      setTimeout(()=> shareBtn.textContent = prev, 1200);
-    } else {
-      alert(shareText);
-    }
-  } catch(e) { /* uživatel zrušil, neřešíme */ }
-};
 
-document.body.appendChild(shareBtn);
-// při restartu tlačítko uklidíme
-againBtn.addEventListener('click', ()=>{ if(shareBtn){ shareBtn.remove(); shareBtn=null; } }, {once:true});
+function gameOver(){
+  state = 'over';
+  if(navigator.vibrate) navigator.vibrate([20,40,35]);
+  beep('fail'); shake = 12;
 
-  }
+  best = Math.max(best, score);
+  localStorage.setItem('stg_best', best);
+  elBest.textContent = `Record: ${best}`;
 
-  /*** RENDER ***/
+  bigText.innerHTML = `GAME OVER<br><span style="font-weight:700;color:#9fd">Score: ${score}</span>`;
+
+  // hned zobraz, ale NEklikatelná
+  againBtn.style.bottom = '28vh';
+  shareBtn.style.bottom = '18vh';
+  againBtn.classList.add('btn-main','show');
+  shareBtn.classList.add('btn-secondary','show');
+  againBtn.classList.remove('enabled');
+  shareBtn.classList.remove('enabled');
+
+  uiArmed = false;
+
+  // spolknout "dojezd" miss-tapu (globálně, v capture fázi)
+  const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+  window.addEventListener('click', swallow, true);
+  window.addEventListener('pointerup', swallow, true);
+
+  // po malé prodlevě povolit klikání a přestat polykat eventy
+  setTimeout(() => {
+    window.removeEventListener('click', swallow, true);
+    window.removeEventListener('pointerup', swallow, true);
+    uiArmed = true;
+    againBtn.classList.add('enabled');
+    shareBtn.classList.add('enabled');
+  }, 350);
+}
+
+  /* ===========================
+     RENDER
+  ============================ */
   function getCss(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
-  // Trojúhelník: nejdřív spočítáme pozici na obvodu, pak hrot ke středu
+  // Trojúhelník u obvodu (hrot dovnitř)
   function drawTriangleAtAngle(a, rPath){
     const offset = THICK/2 + 4*DPR;               // těsně nad prstencem
     const rx = CX + Math.cos(a) * (rPath + offset);
@@ -324,14 +414,12 @@ againBtn.addEventListener('click', ()=>{ if(shareBtn){ shareBtn.remove(); shareB
 
     ctx.save();
     ctx.translate(rx, ry);
-    ctx.rotate(a + Math.PI);                      // špička do středu
-
+    ctx.rotate(a + Math.PI);
     ctx.beginPath();
-    ctx.moveTo(0, 0);                             // špička (u středu)
+    ctx.moveTo(0, 0);
     ctx.lineTo(-height, -base/2);
     ctx.lineTo(-height,  base/2);
     ctx.closePath();
-
     ctx.fillStyle = getCss('--neon');
     ctx.shadowColor = getCss('--neon'); ctx.shadowBlur = 12;
     ctx.fill(); ctx.shadowBlur = 0;
@@ -339,34 +427,37 @@ againBtn.addEventListener('click', ()=>{ if(shareBtn){ shareBtn.remove(); shareB
   }
 
   function render(dt){
-    // otřes
+    // obrazovkový „shake“
     let sx=0, sy=0;
-    if(shake>0){ sx=(Math.random()*2-1)*shake; sy=(Math.random()*2-1)*shake; shake*=0.86; if(shake<0.1) shake=0; }
+    if(shake>0){
+      sx=(Math.random()*2-1)*shake; sy=(Math.random()*2-1)*shake;
+      shake*=0.86; if(shake<0.1) shake=0;
+    }
+
     ctx.setTransform(1,0,0,1,0,0);
     ctx.clearRect(0,0,canvas.width,canvas.height);
     ctx.save(); ctx.translate(sx,sy);
 
-    // jitter rychlosti
+    // drobný „jitter“ rychlosti
     jitterT -= dt;
     if(jitterT<=0){
       jitterT = 0.18 + Math.random()*0.22;
       const spike = Math.random() < 0.08;
       speedScale = spike ? (1.45 + Math.random()*0.25) : (0.92 + Math.random()*0.2);
     }
-    if(state==='play'){
-  if (freezeT > 0) {
-    freezeT -= dt;
-    // po skončení freeze přepneme trojúhelník na novou pozici
-    if (freezeT <= 0 && pendingAngle !== null) {
-  playerAngle = pendingAngle;
-  pendingAngle = null;
-  canTap = true;              // <-- znovu povol vstup až po přesunu šipky
-    }
-  } else {
-    angle += omega * dt * speedScale;
-  }
-}
 
+    if(state==='play'){
+      if (freezeT > 0){
+        freezeT -= dt;
+        if (freezeT <= 0 && pendingAngle !== null){
+          playerAngle = pendingAngle;
+          pendingAngle = null;
+          canTap = true;  // odemkni vstup až po přesunu šipky
+        }
+      } else {
+        angle += omega * dt * speedScale;
+      }
+    }
 
     const R = BASE_R, thick = THICK;
     const centerA = angle, a1 = centerA - gap/2, a2 = centerA + gap/2;
@@ -382,10 +473,10 @@ againBtn.addEventListener('click', ()=>{ if(shareBtn){ shareBtn.remove(); shareB
     ctx.beginPath(); ctx.arc(CX,CY,R, a2, a1+TAU); ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // trojúhelník (hráčův ukazatel) – náhodná „hodina“, hrot dovnitř
+    // hráčův trojúhelník
     drawTriangleAtAngle(playerAngle, R);
 
-    // slovní výsledek (PERFECT/GOOD/OK)
+    // slovní výsledek (PERFECT/GOOD/OK nebo SCORE ×2/×3)
     if(resultText){
       resultText.timer -= dt;
       const alpha = clamp(resultText.timer/0.7,0,1);
@@ -410,14 +501,29 @@ againBtn.addEventListener('click', ()=>{ if(shareBtn){ shareBtn.remove(); shareB
     ctx.restore();
   }
 
-  /*** LOOP ***/
-  function tick(){ const t=now(); let dt=t-tPrev; tPrev=t; dt=Math.min(0.033,Math.max(0.001,dt)); render(dt); requestAnimationFrame(tick); }
+  /* ===========================
+     HERNI SMYČKA
+  ============================ */
+  function tick(){
+    const t = now();
+    let dt = t - tPrev; tPrev = t;
+    dt = Math.min(0.033, Math.max(0.001, dt));
+    render(dt);
+    requestAnimationFrame(tick);
+  }
 
-  /*** INIT ***/
+  /* ===========================
+     INIT
+  ============================ */
   resize(); render(0); requestAnimationFrame(tick);
   bigText.textContent = 'SNAP THE GAP';
   subText.textContent = 'Tap anywhere to start';
-  window.addEventListener('pointerdown', ()=>{ if(!actx){ try{ actx=new AudioCtx(); }catch(e){} } }, {once:true, passive:true});
+
+  // iOS/Chrome: první tap inicializuje AudioContext
+  window.addEventListener('pointerdown', ()=>{
+    if(!actx){ try{ actx = new AudioCtx(); }catch(e){} }
+  }, { once:true, passive:true });
+
 })();
 </script>
 </body>

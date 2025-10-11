@@ -8,21 +8,80 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="format-detection" content="telephone=no">
-  <title>Snap the Gap</title>
+  <title>Loading Rush</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;600;700;800&display=swap" rel="stylesheet">
 
   <style>
     /* =========================
        TÉMA / BARVY
     ========================== */
-    :root{
-      --bg:#0e1213; --fg:#1f2a2e; --ring:#2a3b40; --neon:#2af5d2;
-      --ok:#8fd4ff; --good:#73ffa9; --perfect:#fff7a1; --warn:#ff6b6b;
-      /* Bezpečné okraje (iPhone notch) */
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      /* Spolehlivé vh (doplním z JS) */
-      --vh: 1vh;
-    }
+    :root {
+  --bg:#0e1213;
+  --fg:#1f2a2e;
+  --ring:#2a3b40;
+  --neon:#2af5d2;
+  --ok:#8fd4ff;
+  --good:#73ffa9;
+  --perfect:#fff7a1;
+  --warn:#ff6b6b;
+
+/* vyšší trojúhelník (dolů) */
+.icon-tri{
+  display:inline-block;
+  width:1.2em;
+  height:1.8em;           /* protáhlé jako ve hře */
+  vertical-align:-0.42em;
+  margin:0 .08em;
+}
+.icon-tri svg{
+  display:block; width:100%; height:100%;
+  fill:var(--neon);
+  filter: drop-shadow(0 0 6px rgba(42,245,210,.55));
+}
+
+/* titulek uprostřed kruhu – obě slova stejně velká */
+.title-stack{
+  display:inline-block;
+  line-height:1.0;
+  font-weight:800;
+  letter-spacing:.5px;
+  text-transform:uppercase;
+}
+
+/* stejná velikost pro LOADING i RUSH */
+.title-loading,
+.title-rush{
+  display:block;
+  font-size:clamp(22px, 7.2vmin, 38px);
+  opacity:1;               
+}
+
+
+/* malý podtitul (tap to start) */
+.subtitle{ margin-top:.35rem; font-size:clamp(10px, 3.2vmin, 11px); letter-spacing:.35px; opacity:.8; }
+
+  /* Bezpečné okraje (iPhone notch) */
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+
+  /* Spolehlivé vh (doplním z JS) */
+  --vh: 1vh;
+
+  /* Písmo a typografická škála (clamp = responzivní) */
+  --font-sans: "Oxanium", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+               Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+
+  --fs-2xl: clamp(28px, 7vmin, 44px);
+  --fs-xl:  clamp(18px, 4.8vmin, 24px);
+  --fs-lg:  clamp(16px, 3.4vmin, 18px);
+  --fs-md:  clamp(14px, 2.8vmin, 16px);
+  --fs-sm:  clamp(13px, 2.4vmin, 14px);
+  --fs-xs:  clamp(12px, 2.0vmin, 13px);
+
+  --canvas-result: 26;
+}
 
     /* =========================
        ZÁKLAD
@@ -33,7 +92,8 @@
       margin:0;
       background:var(--bg);
       color:#cfe7e3;
-      font-family:system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      font-family: var(--font-sans);
+      font-size: var(--fs-md);
       overscroll-behavior: none;
       -webkit-user-select: none; user-select: none;
       -webkit-touch-callout: none;
@@ -62,7 +122,12 @@
     }
 
     .row{ display:flex; justify-content:space-between; gap:12px; font-weight:600; letter-spacing:.3px }
-    .pill{ background:#0b0f10cc; border:1px solid #1f2a2e; border-radius:999px; padding:.35rem .7rem; backdrop-filter:blur(2px) }
+    .pill{ 
+    background:#0b0f10cc; border:1px solid #1f2a2e; border-radius:999px;
+    padding:.35rem .7rem; backdrop-filter:blur(2px);
+    font-size: var(--fs-sm); font-weight:700; letter-spacing:.3px;
+    }
+
 
     /* Středový text – výška se doladí v JS podle CY */
     .center{
@@ -70,7 +135,7 @@
       transform:translate(-50%,-50%); text-align:center; pointer-events:none;
       padding-top: var(--sat);
     }
-    .big{ font-size:clamp(24px,6vmin,48px); font-weight:800; text-shadow:0 0 20px #0006 }
+    .big{ font-size: var(--fs-lg); line-height: 1.15; letter-spacing: .4px; font-weight:800; text-shadow:0 0 20px #0006 }
 
     /* =========================
        TLAČÍTKA
@@ -79,15 +144,20 @@
     ========================== */
     .btn{
       position:fixed; left:50%; transform:translateX(-50%);
-      width: min(72vw, 320px);
+      width: min(50vw, 250px);
       text-align:center;
       padding:.95rem 1.2rem;
-      border-radius:14px;
+      border-radius:15px;
       font-weight:700; letter-spacing:.4px;
       cursor:pointer; font-family:inherit; text-transform:uppercase;
       backdrop-filter:blur(2px); box-shadow:0 6px 30px #0006;
       opacity:0; pointer-events:none;
       transition:opacity .22s ease, transform .15s ease;
+      font-size: 1.1rem;      /* zvětšení textu */
+      line-height: 1.15;      /* ať je text opticky uprostřed */
+      white-space: nowrap;    /* aby se text nelámal na 2 řádky */
+      padding: 1.05rem 1.3rem;/* lehce větší tap target */
+
     }
     .btn:active{ transform:translateX(-50%) scale(.97); }
 
@@ -102,20 +172,21 @@
     .btn.show{ opacity:1; }
     .btn.enabled{ pointer-events:auto; }
 
-    .fade{ opacity:.65 } .tiny{ font-size:.85rem; opacity:.8 }
+    .fade{ opacity:.65 } .tiny{ font-size: var(--fs-xs); opacity:.8 }
 
     /* ===== HOW TO bubble ===== */
 .howto{
   position:fixed; left:50%; transform:translateX(-50%);
   top: 120px; /* skutečnou pozici přepočítá JS v updateHowtoPos() */
-  max-width: 280px; z-index:5; pointer-events:none;
+  width: clamp(220px, 50vw, 220px);
+  max-width: none; z-index:5; pointer-events:none;
   background: rgba(20, 30, 32, 0.92);
   color:#eaf7f4; border:1px solid rgba(42,245,210,.22);
   border-radius:14px; padding:12px 14px; text-align:center;
   box-shadow:0 8px 24px rgba(0,0,0,.35); opacity:1; transition:opacity .25s ease;
 }
-.howto-title{ font-weight:700; letter-spacing:.5px; margin-bottom:4px; font-size:13px; opacity:.9; }
-.howto-body{ font-size:14px; line-height:1.35; }
+.howto-title{ font-weight:700; letter-spacing:.5px; margin-bottom:4px; font-size: var(--fs-xs); opacity:.9; }
+.howto-body{ font-size: var(--fs-sm); line-height:1.35; }
 .howto.hide{ opacity:0; }
   </style>
 </head>
@@ -125,31 +196,45 @@
   <canvas id="game" aria-label="Snap the Gap"></canvas>
 
   <!-- HUD (neklikací) -->
-  <div class="hud" aria-hidden="true">
+  <div class="hud">
     <div class="row">
       <div class="pill" id="score">Score: 0</div>
       <div class="pill" id="best">Record: 0</div>
     </div>
 
     <!-- Spodní nápověda -->
-    <div class="row tiny fade" style="justify-content:center; font-size:.75rem; line-height:1.2;">
+    <div class="row tiny fade" style="justify-content:center; font-size:.75rem; line-height:1.2; opacity: 0.5;">
   <div class="pill" style="text-align:center;">
     PERFECT +3 • GOOD +2 • OK +1<br>
     Perfect 3 in a row → ×3 • Good 3 in a row → ×2
   </div>
   </div>
 
-  <!-- Středový text (pozici doladí JS) -->
-  <div class="center" id="centerText">
-    <div class="big" id="bigText">LOADING<br>RUSH</div>
-    <div class="tiny fade" id="subText">Tap anywhere to start</div>
+<!-- Středový text (pozici doladí JS) -->
+<div class="center" id="centerText">
+  <div class="big" id="bigText">
+    <span class="title-stack">
+      <span class="title-loading">LOADING</span>
+      <span class="title-rush">RUSH</span>
+    </span>
   </div>
+  <div class="subtitle" id="subText">TAP TO START</div>
+</div>
+
 
     <!-- HOW TO PLAY bubble -->
-  <div id="howto" class="howto" aria-live="polite" aria-hidden="false">
+  <div id="howto" class="howto" aria-live="polite">
   <div class="howto-title">HOW TO PLAY</div>
   <div class="howto-body">
-    Tap when the <span style="color:var(--neon);font-weight:700;">triangle</span> is in the middle of the gap.
+Tap when
+<span class="icon-tri" role="img" aria-label="triangle">
+  <svg viewBox="0 0 32 44" aria-hidden="true" focusable="false" preserveAspectRatio="xMidYMid meet">
+    <!-- špička dolů, protáhlý tvar -->
+    <path d="M16 42 L2 6 H30 Z"/>
+  </svg>
+</span>
+is at center of the gap.<br>
+Closer = more points.
   </div>
 </div>
 
@@ -198,7 +283,7 @@
     CX = w/2;
     CY = h/2.2;                    // přizvednuto (ergonomie palce)
     BASE_R = Math.min(w, h) / 4.2;
-    THICK  = Math.max(10*DPR, Math.min(BASE_R*0.17, 18*DPR));
+    THICK  = Math.max(10*DPR, Math.min(BASE_R*0.20, 22*DPR));
 
     // posuň HTML text do stejné výšky
     const centerWrap = document.getElementById('centerText');
@@ -313,52 +398,71 @@
   /* =========================
      VSTUPY
   ========================== */
-  function onPress(){
-    // start jen z menu
-    if (state === 'menu'){ handleFirstTapStart(); return; }
-    // během hry ignoruj, když je zamknuto
-    if (state !== 'play' || !canTap) return;
+function onPress(){
+  // start jen z menu
+  if (state === 'menu'){ handleFirstTapStart(); return; }
+  // během hry ignoruj, když je zamknuto
+  if (state !== 'play' || !canTap) return;
 
-    const d = Math.abs(angleDiff(playerAngle, angle));
-    const inside = d <= gap/2;
+  const d = Math.abs(angleDiff(playerAngle, angle));
+  const inside = d <= gap/2;
 
-    if (inside){
-      let grade='ok', points=1, color=getCss('--ok');
-      if(d <= deg(2)){ grade='perfect'; points=3; color=getCss('--perfect'); }
-      else if(d <= deg(8)){ grade='good'; points=2; color=getCss('--good'); }
+  if (inside){
+    let grade='ok', points=1, color=getCss('--ok');
+    if(d <= deg(2)){ grade='perfect'; points=3; color=getCss('--perfect'); }
+    else if(d <= deg(8)){ grade='good'; points=2; color=getCss('--good'); }
 
-      score += points;
-      canTap = false;
+    score += points;
+    canTap = false;
+    elScore.textContent = `Score: ${score}`;
+
+    // správa sérií
+    if (grade==='perfect'){ perfectStreak++; goodStreak=0; }
+    else if (grade==='good'){ goodStreak++; perfectStreak=0; }
+    else { perfectStreak=0; goodStreak=0; }
+
+    // zda se udělil násobič
+    let streakAwarded = false;
+
+    if (perfectStreak === 3){
+      perfectStreak = 0;
+      score = score * 3;
       elScore.textContent = `Score: ${score}`;
-
-      if (grade==='perfect'){ perfectStreak++; goodStreak=0; }
-      else if (grade==='good'){ goodStreak++; perfectStreak=0; }
-      else { perfectStreak=0; goodStreak=0; }
-
-      if (perfectStreak===3){
-        perfectStreak=0; score = score*3; elScore.textContent = `Score: ${score}`;
-        if(navigator.vibrate) navigator.vibrate([25,35,25,35]);
-        streakSound(); resultText = { txt:'SCORE ×3', color:getCss('--perfect'), timer:1.0 };
-      } else if (goodStreak===3){
-        goodStreak=0; score = score*2; elScore.textContent = `Score: ${score}`;
-        if(navigator.vibrate) navigator.vibrate([18,22,18]);
-        streakSound2(); resultText = { txt:'SCORE ×2', color:getCss('--good'), timer:1.0 };
-      }
-
-      flash = 1.0;
-      if(navigator.vibrate) navigator.vibrate(grade==='perfect'?30:12);
-      beep(grade);
-      if(!resultText) resultText = { txt:grade.toUpperCase(), color, timer:0.9 };
-
-      freezeT = 0.50;
-      gap = Math.max(gap*0.93, gapMin);
-      omega *= 1.10;
-      omega *= (1 + (Math.random()*0.12 - 0.06));
-      pendingAngle = randomAngleApart(playerAngle, minDeltaPlayer);
-    } else {
-      gameOver();
+      if(navigator.vibrate) navigator.vibrate([25,35,25,35]);
+      streakSound();
+      resultText = { txt:'SCORE ×3', color:getCss('--perfect'), timer:1.0 };
+      streakAwarded = true;
+    } else if (goodStreak === 3){
+      goodStreak = 0;
+      score = score * 2;
+      elScore.textContent = `Score: ${score}`;
+      if(navigator.vibrate) navigator.vibrate([18,22,18]);
+      streakSound2();
+      resultText = { txt:'SCORE ×2', color:getCss('--good'), timer:1.0 };
+      streakAwarded = true;
     }
+
+    // efekty zásahu
+    flash = 1.0;
+    if(navigator.vibrate) navigator.vibrate(grade==='perfect'?30:12);
+    beep(grade);
+
+    // !!! nepřepisuj text série
+    if (!streakAwarded){
+      resultText = { txt: grade.toUpperCase(), color, timer: 0.9 };
+    }
+
+    // freeze + zvýšení obtížnosti
+    freezeT = 0.50;
+    gap = Math.max(gap*0.93, gapMin);
+    omega *= 1.10;
+    omega *= (1 + (Math.random()*0.12 - 0.06));
+    pendingAngle = randomAngleApart(playerAngle, minDeltaPlayer);
+
+  } else {
+    gameOver();
   }
+}
 
   canvas.addEventListener('pointerdown', onPress, { passive:true });
   window.addEventListener('keydown', e=>{
@@ -437,6 +541,16 @@ function handleFirstTapStart(){
   startGame();
 }
 
+function showHomeTitle(){
+  if(!bigText) return;
+  bigText.innerHTML =
+    '<span class="title-stack">' +
+      '<span class="title-loading">LOADING</span>' +
+      '<span class="title-rush">RUSH</span>' +
+    '</span>';
+  if (subText) subText.textContent = 'TAP ANYWHERE TO START';
+}
+
   /* =========================
      FLOW
   ========================== */
@@ -453,7 +567,8 @@ function handleFirstTapStart(){
     againBtn.classList.remove('show','enabled');
     shareBtn.classList.remove('show','enabled');
 
-    bigText.textContent=''; subText.textContent='';
+    bigText.textContent='';
+    if (subText) subText.textContent = '';
   }
 
   function gameOver(){
@@ -462,7 +577,7 @@ function handleFirstTapStart(){
     document.documentElement.style.setProperty('--neon', '#ff6b6b'); // červená
     setTimeout(() => {
     document.documentElement.style.setProperty('--neon', '#2af5d2'); // zpět na původní zelenou
-    }, 150);
+    }, 250);
 
     state='over';
     if(navigator.vibrate) navigator.vibrate([20,40,35]);
@@ -515,7 +630,7 @@ function handleFirstTapStart(){
     ctx.lineTo(-height,  base/2);
     ctx.closePath();
     ctx.fillStyle = getCss('--neon');
-    ctx.shadowColor = getCss('--neon'); ctx.shadowBlur = 12;
+    ctx.shadowColor = getCss('--neon'); ctx.shadowBlur = 10;
     ctx.fill(); ctx.shadowBlur = 0;
     ctx.restore();
   }
@@ -560,7 +675,7 @@ function handleFirstTapStart(){
 
     // neon bez mezery
     ctx.strokeStyle = getCss('--neon');
-    ctx.shadowColor = getCss('--neon'); ctx.shadowBlur=20;
+    ctx.shadowColor = getCss('--neon'); ctx.shadowBlur=15;
     ctx.beginPath(); ctx.arc(CX,CY,R, a2, a1+TAU); ctx.stroke();
     ctx.shadowBlur = 0;
 
@@ -573,9 +688,9 @@ function handleFirstTapStart(){
       const alpha = clamp(resultText.timer/0.7,0,1);
       ctx.globalAlpha = alpha;
       ctx.fillStyle = resultText.color;
-      ctx.font = `700 ${Math.round(28*DPR)}px system-ui,Segoe UI,Roboto`;
+      ctx.font = `800 ${Math.round(parseInt(getCss('--canvas-result')||'26',10)*DPR)}px "Oxanium", ui-sans-serif, system-ui, "Segoe UI", Roboto`;
       ctx.textAlign='center';
-      ctx.fillText(resultText.txt, CX, CY - R - 28*DPR);
+      ctx.fillText(resultText.txt, CX, CY - R - 40*DPR);
       ctx.globalAlpha = 1;
       if(resultText.timer<=0) resultText=null;
     }
@@ -601,8 +716,7 @@ function handleFirstTapStart(){
      INIT
   ========================== */
   resize(); render(0); requestAnimationFrame(tick);
-  bigText.textContent = 'LOADING RUSH';
-  subText.textContent = 'Tap anywhere to start';
+  showHomeTitle();
   maybeShowHowto();
   updateHowtoPos();
   alignIdleLikeThis();

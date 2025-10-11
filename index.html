@@ -101,13 +101,13 @@
 
     /* Plátno přes celou obrazovku (řeší i iOS toolbary) */
     canvas{
-      display:block;
-      width:100vw;
-      /* preferuj 100dvh, fallback na vlastní --vh */
-      height:100dvh;
-      height:calc(var(--vh) * 100);
-      touch-action:manipulation;
-    }
+  display:block;
+  width:100vw;
+  /* 1) prefer dvh, 2) fallback na vlastní --vh */
+  height: calc(var(--vh, 1dvh) * 100);
+  touch-action:manipulation;
+}
+
 
     /* HUD = neklikací overlay; paddings respektují safe-area */
     .hud{
@@ -133,7 +133,6 @@
     .center{
       position:fixed; left:50%; top:50%;
       transform:translate(-50%,-50%); text-align:center; pointer-events:none;
-      padding-top: var(--sat);
     }
     .big{ font-size: var(--fs-lg); line-height: 1.15; letter-spacing: .4px; font-weight:800; text-shadow:0 0 20px #0006 }
 
@@ -265,10 +264,13 @@ Closer = more points.
   let CX=0, CY=0, BASE_R=160, THICK=16*DPR;
 
   function setVHVar(){
-    // spolehlivá 1vh = 1% z aktuální vnitřní výšky
-    const vh = window.innerHeight * 0.01;
-    document.documentElement.style.setProperty('--vh', vh + 'px');
-  }
+  const h = (window.visualViewport && window.visualViewport.height)
+    ? window.visualViewport.height
+    : window.innerHeight;
+  const vh = h * 0.01;
+  document.documentElement.style.setProperty('--vh', vh + 'px');
+}
+
 
   function resize(){
     setVHVar();
@@ -278,7 +280,8 @@ Closer = more points.
 
     // CSS výška řešíme přes --vh, ale pro jistotu:
     canvas.style.width = '100vw';
-    canvas.style.height = 'calc(var(--vh) * 100)';
+    canvas.style.height = 'calc(var(--vh, 1dvh) * 100)';
+
 
     CX = w/2;
     CY = h/2.2;                    // přizvednuto (ergonomie palce)
@@ -288,7 +291,7 @@ Closer = more points.
     // posuň HTML text do stejné výšky
     const centerWrap = document.getElementById('centerText');
     if (centerWrap) {
-      centerWrap.style.top = ( (CY / (h||1)) * 100 ) + 'vh';
+      centerWrap.style.top = (CY / DPR) + 'px';
     }
     updateHowtoPos();
   }

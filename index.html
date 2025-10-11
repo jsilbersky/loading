@@ -556,12 +556,30 @@ function showHomeTitle(){
   ========================== */
   function startGame(){
     fadeInMusic();
+
     if(howto) howto.classList.add('hide');
     state='play';
-    score=0; elScore.textContent='Score: 0';
-    angle = -Math.PI/2; omega = deg(160); gap = deg(90);
-    resultText = null; flash=0; shake=0; speedScale=1; jitterT=0; freezeT=0;
+
+    // ★ RESET pro novou hru (aby se nepřenášely streaky a zámky)
+    score = 0; 
+    elScore.textContent='Score: 0';
+
+    angle = -Math.PI/2; 
+    omega = deg(160); 
+    gap = deg(90);
+
+    resultText = null; 
+    flash=0; 
+    shake=0; 
+    speedScale=1; 
+    jitterT=0; 
+    freezeT=0; 
+    pendingAngle = null;            // ★
     playerAngle = -Math.PI/2;
+
+    perfectStreak = 0;              // ★
+    goodStreak = 0;                 // ★
+    canTap = true;                  // ★
 
     uiArmed = false;
     againBtn.classList.remove('show','enabled');
@@ -724,6 +742,19 @@ function showHomeTitle(){
 
   // iOS/Chrome: první tap inicializuje AudioContext
   window.addEventListener('pointerdown', ()=>{ if(!actx){ try{ actx=new AudioCtx(); }catch(e){} } }, {once:true, passive:true});
+
+  // ★ Pozastavit zvuky (WebAudio) při odchodu z appky
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      try { if (actx && actx.state === 'running') actx.suspend(); } catch(e){}
+      // pozastav i hudbu
+      if (typeof pauseMusic === 'function') pauseMusic();
+    }
+  }, { passive:true });
+
+  // ★ Fallback pro iOS/Android při zavření/odchodu (BFCache apod.)
+  window.addEventListener('pagehide', () => { if (typeof pauseMusic === 'function') pauseMusic(); }, { passive:true });
+
 })();
 
 /* =========================
@@ -742,6 +773,15 @@ function playMusic() {
   if (bgMusic.paused) bgMusic.play().catch(()=>{});
 }
 
+function pauseMusic() { // ★ okamžité pauznutí bez resetu pozice
+  if (!bgMusic) return;
+  try {
+    clearInterval(fadeInterval);
+    fadeInterval = null;
+    bgMusic.pause();
+  } catch(e){}
+}
+
 function fadeOutMusic(duration = 1500) {
   if (!bgMusic) return;
   const startVol = bgMusic.volume;
@@ -754,9 +794,10 @@ function fadeOutMusic(duration = 1500) {
     bgMusic.volume = Math.max(0, startVol * (1 - i / steps));
     if (i >= steps) {
       clearInterval(fadeInterval);
+      fadeInterval = null;                 // ★
       bgMusic.pause();
-      bgMusic.currentTime = 0; // reset pozice
-      bgMusic.volume = startVol; // připrav pro další hru
+      bgMusic.currentTime = 0;             // reset pozice po GAME OVER
+      bgMusic.volume = startVol;           // připrav pro další hru
     }
   }, stepTime);
 }
@@ -773,7 +814,7 @@ function fadeInMusic(duration = 1200) {
   fadeInterval = setInterval(() => {
     i++;
     bgMusic.volume = Math.min(targetVol, (targetVol * i) / steps);
-    if (i >= steps) clearInterval(fadeInterval);
+    if (i >= steps) { clearInterval(fadeInterval); fadeInterval = null; } // ★
   }, stepTime);
 }
 

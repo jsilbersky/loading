@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# (Zvaž) pokud máš build výstup ve složce www, ignoruj ho
+www/
+
+# Android build outputs
+android/**/build/
+android/.gradle/
+android/.cxx/
+
+# IDE/OS drobnosti
+.vscode/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db

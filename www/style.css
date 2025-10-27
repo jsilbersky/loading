@@ -238,3 +238,22 @@
     .btn--primary{ bottom:calc(27 * var(--vh) + var(--sab)) }
     .btn--secondary{ bottom:calc(17 * var(--vh) + var(--sab)) }
   }
+
+  /* Logo na úvodní obrazovce */
+.logo{
+  display:block;
+  margin: 0 auto 10px;              /* mezera nad titulkem */
+  width: min(80px, 22vw);          /* responsivní šířka */
+  max-height: 18vh;                 /* ať nepřeroste výšku */
+  object-fit: contain;
+  opacity: .98;
+  filter: drop-shadow(0 0 18px rgba(42,245,210,.28));
+}
+
+/* extra úzké mobily */
+@media (max-width: 360px){
+  .logo{
+    width: min(160px, 48vw);
+    margin-bottom: 8px;
+  }
+}

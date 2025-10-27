@@ -7,31 +7,26 @@
   const angleDiff=(a,b)=>normAngle(a-b);
   const rnd=(a,b)=>a+Math.random()*(b-a);
   const delay = (ms)=>new Promise(r=>setTimeout(r,ms));
+  // === SLOW UTILS ===
+const BASE_OMEGA = deg(160);        // základní „normální“ rychlost
+const MAX_OMEGA  = deg(650);
 
-  /* ========= TOGGLES ========= */
-  const IS_TESTING = true;   // PRODUCTION: set to false
-  const AD_UNIT_ID = IS_TESTING
-    ? 'ca-app-pub-3940256099942544/5224354917' // Google test rewarded
-    : 'ca-app-pub-xxxxxxxxxxxxxxxx/xxxxxxxxxx'; // your real Rewarded ID
-  const DEBUG_ADS   = true;
+// 160°/s → faktor 0.75  …  650°/s → faktor 0.45 (adaptivní zpomalení)
+function slowFactorFor(currOmega){
+  const o = clamp(currOmega, BASE_OMEGA, MAX_OMEGA);
+  const t = (o - BASE_OMEGA) / (MAX_OMEGA - BASE_OMEGA); // 0..1
+  const fStart = 0.75, fEnd = 0.45;
+  return fStart + (fEnd - fStart) * t;
+}
 
-  /* ========= MINI DEBUG OVERLAY ========= */
-  let _adDbgEl=null;
-  function adDbgInit(){
-    if(!DEBUG_ADS || _adDbgEl) return;
-    _adDbgEl=document.createElement('div');
-    _adDbgEl.style.cssText='position:fixed;bottom:8px;left:8px;z-index:99;font:12px/1.2 monospace;color:#bdf;background:#000a;padding:6px 8px;border:1px solid #245;border-radius:8px;pointer-events:none;opacity:.9';
-    _adDbgEl.textContent='AD: init…';
-    document.body.appendChild(_adDbgEl);
-  }
-  function adDbg(msg){
-    if(!DEBUG_ADS) return;
-    if(!_adDbgEl) adDbgInit();
-    const t=new Date().toTimeString().split(' ')[0];
-    _adDbgEl.textContent=`${t}  ${msg}`;
-    console.log('[ADS]', msg);
-  }
-  adDbgInit();
+function isSlowActive(t = now()){ return slowActiveUntil > t; }
+
+
+/* ========= TOGGLES ========= */
+const IS_TESTING = true;   // v produkci false
+const AD_UNIT_ID = IS_TESTING
+  ? 'ca-app-pub-3940256099942544/5224354917' // Google test rewarded
+  : 'ca-app-pub-xxxxxxxxxxxxxxxx/xxxxxxxxxx'; // tvé reálné ID
 
   /* ========= CANVAS ========= */
   const canvas=document.getElementById('game');
@@ -113,6 +108,8 @@ if (window.visualViewport){
   const bigText=document.getElementById('bigText');
   const subText=document.getElementById('subText');
   const howto=document.getElementById('howto');
+  const logoEl = document.getElementById('logo');
+
 
   const playBonusBtn=document.getElementById('playBonusBtn');
   const playNoBonusBtn=document.getElementById('playNoBonusBtn');
@@ -156,9 +153,6 @@ if (window.visualViewport){
     g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.7,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+0.22);
     o.connect(g); o.onended=()=>{}; g.connect(actx.destination); o.start(t); o.stop(t+0.24);}catch(e){} }
 
-  /* ========= REWARDED / BADGE ========= */
-  const AdMob = window?.Capacitor?.Plugins?.AdMob;
-
 // střídání ob hru: 1. hra bez bonusu, 2. hra s bonusem, pak se to střídá
 let offerBonusNext = false;
 
@@ -172,141 +166,152 @@ let offerBonusNext = false;
   let admobInited = false;
   let listenersBound = false;
 
-  async function ensureAdmob(){
-    adDbg(window?.Capacitor?.Plugins?.AdMob ? 'AdMob plugin: OK' : 'AdMob plugin: MISSING');
-    if(!AdMob?.initialize) return false;
-    if(!admobInited){
-      try{
-        await AdMob.initialize({ initializeForTesting: IS_TESTING });
-        admobInited = true;
-        adDbg(`AdMob initialized (testing=${IS_TESTING})`);
-      }catch(e){ adDbg('AdMob init error'); }
+async function ensureAdmob(){
+  const AdMob = window?.Capacitor?.Plugins?.AdMob;
+  if (!AdMob?.initialize) return false;
+
+  if (!admobInited){
+    try{
+      await AdMob.initialize({ initializeForTesting: IS_TESTING });
+      admobInited = true;
+    }catch(e){
+      return false;
     }
-    if(!listenersBound){
-      AdMob.addListener('onRewardedVideoAdReward', () => {
-  adDbg('event: onRewardedVideoAdReward');
-  rewardGrantedPending = true;
-});
-
-
-      AdMob.addListener('onRewardedVideoAdDismissed', async () => {
-        adDbg('event: onRewardedVideoAdDismissed');
-        if (pendingStartAfterReward) {
-          const granted = rewardGrantedPending;
-          pendingStartAfterReward = false;
-          startGame();
-          if (granted) toast('Bonus ready for the next game.');
-          else toast('Starting without bonus.');
-        }
-        Reward.onDismiss();
-      });
-
-      AdMob.addListener('onRewardedVideoAdFailedToLoad', () => {
-        adDbg('event: onRewardedVideoAdFailedToLoad'); Reward.onLoadFailed();
-      });
-      AdMob.addListener('onRewardedVideoAdLoaded', () => {
-        adDbg('event: onRewardedVideoAdLoaded'); Reward.onLoaded();
-      });
-      AdMob.addListener('onRewardedVideoAdFailedToShow', () => {
-        adDbg('event: onRewardedVideoAdFailedToShow'); toast('Ad failed — starting without bonus.'); Reward.onLoadFailed();
-        if (pendingStartAfterReward){ pendingStartAfterReward=false; startGame(); }
-      });
-
-      listenersBound = true;
-    }
-    return true;
   }
 
-  const BACKOFF_MS = [400, 800, 1500, 2500, 4000, 6000, 8000, 12000];
+  if (!listenersBound){
+    // Reward eventy – nezobrazujeme žádné logy, jen stav
+    AdMob.addListener('onRewardedVideoAdReward', () => {
+      rewardGrantedPending = true;
+    });
 
-  const Reward = {
-    state: 'idle',             // 'idle' | 'loading' | 'loaded' | 'showing'
-    loadingPromise: null,
-    autoPlayQueued: false,
-    backoffIdx: 0,
-    prewarmRunning: false,
-    lastLoadTs: 0,
-
-    toIdle(){ this.state='idle'; this.loadingPromise=null; },
-
-    toLoaded(){
-      if (this.state !== 'showing') {
-        adDbg('state → loaded'); this.state='loaded'; this.loadingPromise=null; this.backoffIdx=0;
+    AdMob.addListener('onRewardedVideoAdDismissed', async () => {
+      if (pendingStartAfterReward) {
+        const granted = rewardGrantedPending;
+        pendingStartAfterReward = false;
+        startGame();
+        if (!granted) toast('Starting without bonus.');
       }
-    },
+      Reward.onDismiss();
+    });
 
-    async load(force=false){
-      if(!(await ensureAdmob())) { adDbg('ensureAdmob(): false'); return false; }
-      if(this.state==='loaded') return true;
-      if(this.state==='loading' && this.loadingPromise) return this.loadingPromise;
+    AdMob.addListener('onRewardedVideoAdFailedToLoad', () => {
+      Reward.onLoadFailed();
+    });
 
-      const diff = Date.now() - this.lastLoadTs;
-      if(!force && diff < 800) await delay(800 - diff);
-      this.lastLoadTs = Date.now();
+    AdMob.addListener('onRewardedVideoAdLoaded', () => {
+      Reward.onLoaded();
+    });
 
-      adDbg('action: load'); this.state='loading';
-      this.loadingPromise = AdMob.prepareRewardVideoAd({ adId: AD_UNIT_ID, isTesting: IS_TESTING })
-        .then(()=>true).catch(()=>{ this.onLoadFailed(); return false; });
-      return this.loadingPromise;
-    },
+    AdMob.addListener('onRewardedVideoAdFailedToShow', () => {
+      toast('Ad failed — starting without bonus.');
+      Reward.onLoadFailed();
+      if (pendingStartAfterReward){ pendingStartAfterReward=false; startGame(); }
+    });
 
-    async show(){
-      adDbg('action: show');
-      if(!(await ensureAdmob())) { adDbg('ensureAdmob(): false'); return false; }
+    listenersBound = true;
+  }
 
-      if(this.state!=='loaded'){
-        this.autoPlayQueued = true;
-        await this.load(true);
-        return false;
-      }
+  return true;
+}
 
-      try{
-        this.state='showing';
-        await AdMob.showRewardVideoAd();
-        adDbg('show: success');
-        return true;
-      }catch(err){
-        this.toIdle();
-        return false;
-      }
-    },
 
-    onLoaded(){
-      this.toLoaded();
-      if(this.autoPlayQueued && this.state==='loaded'){
-        this.autoPlayQueued=false;
-        this.show();
-      }
-    },
+const BACKOFF_MS = [400, 800, 1500, 2500, 4000, 6000, 8000, 12000];
 
-    onLoadFailed(){
-      adDbg('state → load failed');
+const Reward = {
+  state: 'idle',             // 'idle' | 'loading' | 'loaded' | 'showing'
+  loadingPromise: null,
+  autoPlayQueued: false,
+  backoffIdx: 0,
+  prewarmRunning: false,
+  lastLoadTs: 0,
+
+  toIdle(){ this.state='idle'; this.loadingPromise=null; },
+
+  toLoaded(){
+    if (this.state !== 'showing') {
+      this.state='loaded';
+      this.loadingPromise=null;
+      this.backoffIdx=0;
+    }
+  },
+
+  async load(force=false){
+    if(!(await ensureAdmob())) return false;
+    if(this.state==='loaded') return true;
+    if(this.state==='loading' && this.loadingPromise) return this.loadingPromise;
+
+    const diff = Date.now() - this.lastLoadTs;
+    if(!force && diff < 800) await delay(800 - diff);
+    this.lastLoadTs = Date.now();
+
+    this.state='loading';
+    this.loadingPromise = window.Capacitor.Plugins.AdMob.prepareRewardVideoAd({
+      adId: AD_UNIT_ID,
+      isTesting: IS_TESTING
+    })
+    .then(()=>true)
+    .catch(()=>{ this.onLoadFailed(); return false; });
+
+    return this.loadingPromise;
+  },
+
+  async show(){
+    if(!(await ensureAdmob())) return false;
+
+    if(this.state!=='loaded'){
+      this.autoPlayQueued = true;
+      await this.load(true);
+      return false;
+    }
+
+    try{
+      this.state='showing';
+      await window.Capacitor.Plugins.AdMob.showRewardVideoAd();
+      return true;
+    }catch(err){
       this.toIdle();
-      this.backoffIdx = Math.min(this.backoffIdx+1, BACKOFF_MS.length-1);
-      if (this.autoPlayQueued) {
-        this.autoPlayQueued = false;
-        toast('Ad unavailable — starting without bonus.');
-        if (pendingStartAfterReward){ pendingStartAfterReward=false; startGame(); }
-      }
-    },
-
-    onDismiss(){
-      adDbg('state → dismissed, prewarm');
-      this.autoPlayQueued = false; this.toIdle(); this.startPrewarm();
-    },
-
-    startPrewarm(){ if(this.prewarmRunning) return; this.prewarmRunning = true; prewarmTick(); },
-    stopPrewarm(){ this.prewarmRunning=false; }
-  };
-
-  async function prewarmTick(){
-    while(Reward.prewarmRunning){
-      if(Reward.state==='loaded' || Reward.state==='showing'){ await delay(6000); continue; }
-      await Reward.load(true);
-      const wait = BACKOFF_MS[Reward.backoffIdx] + Math.floor(Math.random()*300);
-      await delay(wait);
+      return false;
     }
+  },
+
+  onLoaded(){
+    this.toLoaded();
+    if(this.autoPlayQueued && this.state==='loaded'){
+      this.autoPlayQueued=false;
+      this.show();
+    }
+  },
+
+  onLoadFailed(){
+    this.toIdle();
+    this.backoffIdx = Math.min(this.backoffIdx+1, BACKOFF_MS.length-1);
+    if (this.autoPlayQueued) {
+      this.autoPlayQueued = false;
+      toast('Ad unavailable — starting without bonus.');
+      if (pendingStartAfterReward){ pendingStartAfterReward=false; startGame(); }
+    }
+  },
+
+  onDismiss(){
+    this.autoPlayQueued = false;
+    this.toIdle();
+    this.startPrewarm();
+  },
+
+  startPrewarm(){ if(this.prewarmRunning) return; this.prewarmRunning = true; prewarmTick(); },
+  stopPrewarm(){ this.prewarmRunning=false; }
+};
+
+async function prewarmTick(){
+  while(Reward.prewarmRunning){
+    if(Reward.state==='loaded' || Reward.state==='showing'){ await delay(6000); continue; }
+    await Reward.load(true);
+    const wait = BACKOFF_MS[Reward.backoffIdx] + Math.floor(Math.random()*300);
+    await delay(wait);
   }
+}
+
 
   /* ========= INPUTS ========= */
   function onPress(){
@@ -343,7 +348,13 @@ let offerBonusNext = false;
 
       freezeT=0.50;
       gap = Math.max(gap * 0.94, gapMin);
-      omega = Math.min( omega * 1.07 * (1 + (Math.random() * 0.08 - 0.04)), deg(650) );
+      if (!isSlowActive()) {
+        omega = Math.min(
+        omega * 1.07 * (1 + (Math.random() * 0.08 - 0.04)),
+        MAX_OMEGA
+        );
+        }
+
       pendingAngle=randomAngleApart(playerAngle, minDeltaPlayer);
 
     } else {
@@ -421,15 +432,17 @@ playBonusBtn.addEventListener('click', async () => {
   /* ========= HOWTO / FLOW ========= */
   function alignIdleLikeThis(){ playerAngle=angle; }
   function handleFirstTapStart(){ if(howto) howto.classList.add('hide'); playMusic(); startGame(); }
-  function showHomeTitle(){
-    if(!bigText) return;
-    bigText.innerHTML='<span class="title-stack"><span class="title-loading">LOADING</span><span class="title-rush">RUSH</span></span>';
-    if(subText) subText.textContent='TAP ANYWHERE TO START';
-  }
+function showHomeTitle(){
+  if(!bigText) return;
+  if (logoEl) logoEl.style.display = 'block';
+  bigText.innerHTML =
+    '<span class="title-stack"><span class="title-loading">LOADING</span><span class="title-rush">RUSH</span></span>';
+  if (subText) subText.textContent='TAP ANYWHERE TO START';
+}
 
-  function startGame(){
-    fadeInMusic();
-    state='play';
+function startGame(){
+  fadeInMusic();
+  state='play';
 
     // reset
     score=0; scoreVal.textContent='0';
@@ -441,6 +454,7 @@ playBonusBtn.addEventListener('click', async () => {
     playerAngle=-Math.PI/2; perfectStreak=0; goodStreak=0; canTap=true;
 
 // UI
+if (logoEl) logoEl.style.display = 'none';
 bigText.textContent='';
 if (subText) subText.textContent='';
 
@@ -540,21 +554,39 @@ Reward.startPrewarm();
 
 
   /* ========= SLOW BADGE ========= */
-  function startSlowCountdown(){
-    clearInterval(slowTimer);
-    const tick = () => {
-      const rem = Math.max(0, Math.ceil(slowActiveUntil - now()));
-      if (rem > 0) slowBadge.textContent = `Activate Slow Motion ${rem} s`;
-      else { slowBadge.classList.remove('show'); clearInterval(slowTimer); slowTimer=null; }
-    };
-    tick(); slowTimer = setInterval(tick, 200);
-  }
-  slowBadge.addEventListener('click', () => {
-    if (state !== 'play' || !slowAvailable) return;
-    slowAvailable   = false;
-    slowActiveUntil = now() + 10;
-    startSlowCountdown();
-  });
+function startSlowCountdown(){
+  clearInterval(slowTimer);
+  const tick = () => {
+    const rem = Math.max(0, Math.ceil(slowActiveUntil - now()));
+    if (rem > 0) {
+      slowBadge.textContent = `SLOW MOTION: ${rem} s`;
+    } else {
+      slowBadge.classList.remove('show');
+      clearInterval(slowTimer); slowTimer = null;
+      // po vypršení necháváme omega tak, jak je; od další trefy se zas může zvyšovat
+    }
+  };
+  tick(); slowTimer = setInterval(tick, 200);
+}
+
+slowBadge.addEventListener('click', () => {
+  if (state !== 'play' || !slowAvailable) return;
+
+  slowAvailable   = false;
+  slowActiveUntil = now() + 10;
+
+  // poměrové zpomalení vůči aktuální rychlosti, s podlahou
+  const f = slowFactorFor(omega);
+  const slowedOmega = Math.max(BASE_OMEGA, omega * f);
+
+  // nastavíme ihned zpomalenou rychlost; po vypršení žádný skok zpět
+  omega = slowedOmega;
+
+  // UI
+  slowBadge.textContent = 'SLOW MOTION: 10 s';
+  startSlowCountdown();
+});
+
 
   /* ========= RENDER ========= */
   function getCss(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
@@ -600,18 +632,13 @@ Reward.startPrewarm();
         freezeT-=dt;
         if(freezeT<=0 && pendingAngle!==null){ playerAngle=pendingAngle; pendingAngle=null; canTap=true; }
       } else {
-        const tNow = now();
-        const easeIn = Math.min(1, (tNow - gameStartTime) / 0.3);
-        let effectiveOmegaBase;
-        if (slowActiveUntil > tNow) {
-          const remaining = slowActiveUntil - tNow;
-          const progress = clamp(1 - remaining / 10, 0, 1);
-          effectiveOmegaBase = deg(160) + (omega - deg(160)) * progress;
-        } else {
-          effectiveOmegaBase = omega;
-        }
-        const effectiveOmega = effectiveOmegaBase * easeIn;
-        angle += effectiveOmega * dt * speedScale;
+const tNow = now();
+const easeIn = Math.min(1, (tNow - gameStartTime) / 0.3);
+
+// omega je vždy „pravda“ (během slow už je snížená konstanta)
+const effectiveOmega = omega * easeIn;
+angle += effectiveOmega * dt * speedScale;
+
       }
     }
 
@@ -678,7 +705,7 @@ Reward.startPrewarm();
     const el=document.createElement('div');
     el.className='toast'; el.textContent=msg; document.body.appendChild(el);
     requestAnimationFrame(()=>el.classList.add('show'));
-    setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(),200); }, 1700);
+    setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(),200); }, 2500);
   }
 })();
 

@@ -1,0 +1,240 @@
+  :root{
+    --bg:#0e1213; --fg:#1f2a2e; --ring:#2a3b40; --neon:#2af5d2;
+    --ok:#8fd4ff; --good:#73ffa9; --perfect:#fff7a1; --warn:#ff6b6b;
+    --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
+    --vh: 1vh;
+
+    /* jednotné písmo pro celé UI */
+    --font-sans: "Oxanium", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+                 Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+
+    --fs-2xl:clamp(28px,7vmin,44px); --fs-xl:clamp(18px,4.8vmin,24px); --fs-lg:clamp(16px,3.4vmin,18px);
+    --fs-md:clamp(14px,2.8vmin,16px); --fs-sm:clamp(13px,2.4vmin,14px); --fs-xs:clamp(11px,2vmin,13px);
+    --canvas-result:26;
+  }
+
+  /* všude Oxanium + zachování přes fallbacky */
+  html{ font-family:var(--font-sans); }
+  *,*::before,*::after{ font-family:inherit; }
+
+  /* form prvky dědí font a vypneme nativní vzhled (kvůli iOS/Android buttonům) */
+  button,input,select,textarea{
+    font:inherit;
+    -webkit-appearance:none;
+    appearance:none;
+  }
+
+  *{ -webkit-tap-highlight-color:transparent }
+
+  html,body{
+    height:100%; margin:0; background:var(--bg); color:#cfe7e3; font-size:var(--fs-md);
+    overscroll-behavior:none; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+  }
+  canvas{ display:block; width:100vw; height:calc(var(--vh,1dvh)*100); touch-action:manipulation; }
+
+  .hud{
+    position:fixed; inset:0; pointer-events:none;
+    display:flex; flex-direction:column; justify-content:space-between;
+    padding-top: calc(max(10px, var(--sat)) + var(--statusbar, 0px) + 6px);
+    padding-bottom: calc(max(10px, var(--sab)) + var(--navbar, 0px) + 10px);
+    padding-left: clamp(10px,2.5vmin,24px);
+    padding-right: clamp(10px,2.5vmin,24px);
+  }
+
+  /* top row */
+  .row{
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+    font-weight:600;
+    letter-spacing:.3px;
+  }
+
+  /* pill base */
+  .pill{
+    background:#0b0f10cc;
+    border:1px solid #1f2a2e;
+    border-radius:999px;
+    padding:.32rem .5rem;
+    backdrop-filter:blur(2px);
+    font-weight:700;
+    letter-spacing:.3px;
+    pointer-events:auto;
+  }
+  .pill.link{ cursor:pointer; text-decoration:underline; }
+
+  /* stacked pills */
+  .pill-stack{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    flex:1 1 0; min-width:0; padding:.34rem .4rem;
+    line-height:1.05; text-align:center;
+  }
+  .pill-label{ font-size:var(--fs-xs); opacity:.85; line-height:1.05; }
+  .pill-value{ font-size:var(--fs-sm); font-weight:800; line-height:1.05; font-variant-numeric:tabular-nums; }
+  /* Větší text v horních pilulkách */
+#topRow .pill-value{
+  font-size: clamp(18px, 4.2vmin, 24px);   /* čísla (Score, WR, Best) */
+  line-height: 1.05;
+}
+#topRow .pill-label{
+  font-size: clamp(12px, 3.0vmin, 14px);   /* popisky "Score:", "World Record:", "Your Record:" */
+}
+
+@media (max-width: 360px){
+  #topRow .pill-value{ font-size: clamp(16px, 4.2vmin, 20px); }
+  #topRow .pill-stack{ padding: .38rem .48rem; }
+}
+
+
+  /* zvýraznění World Record */
+  .pill--accent .pill-label,
+  .pill--accent .pill-value{ color:var(--neon); }
+
+  /* blink top pills po Game Over */
+  @keyframes hudBlink{
+    0%,100%{ box-shadow:0 0 0 rgba(42,245,210,0); border-color:#1f2a2e; }
+    50%    { box-shadow:0 0 18px rgba(42,245,210,.55); border-color:rgba(42,245,210,.6); }
+  }
+  #topRow.blink .pill{ animation:hudBlink .85s ease-in-out 3; }
+
+  .center{ position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); text-align:center; pointer-events:none; }
+  .big{ font-size:var(--fs-lg); line-height:1.15; letter-spacing:.4px; font-weight:800; text-shadow:0 0 20px #0006 }
+
+  .title-stack{ display:inline-block; line-height:1; font-weight:800; letter-spacing:.5px; text-transform:uppercase; }
+  .title-loading,.title-rush{ display:block; font-size:clamp(22px,7.2vmin,38px); }
+  .subtitle{ margin-top:.35rem; font-size:clamp(10px,3.2vmin,11px); letter-spacing:.35px; opacity:.8; }
+
+  .fade{ opacity:.65 } .tiny{ font-size:var(--fs-xs); opacity:.8 }
+
+  .icon-tri{ display:inline-block; width:1.2em; height:1.8em; vertical-align:-0.42em; margin:0 .08em; }
+  .icon-tri svg{ display:block; width:100%; height:100%; fill:var(--neon); filter:drop-shadow(0 0 6px rgba(42,245,210,.55)); }
+
+  /* how-to bublina */
+  .howto{
+    position:fixed; left:50%; transform:translateX(-50%);
+    top:clamp(84px, 16vh, 140px);
+    width:clamp(210px,58vw,260px); z-index:5; pointer-events:none;
+    background:rgba(20,30,32,.92); color:#eaf7f4;
+    border:1px solid rgba(42,245,210,.22); border-radius:14px; padding:12px 14px; text-align:center;
+    box-shadow:0 8px 24px rgba(0,0,0,.35); opacity:1; transition:opacity .25s ease;
+  }
+  .howto-title{ font-weight:700; letter-spacing:.5px; margin-bottom:4px; font-size:var(--fs-xs); opacity:.9 }
+  .howto-body{ font-size:var(--fs-sm); line-height:1.35 }
+  .howto.hide{ opacity:0 }
+
+  /* CTA tlačítka */
+  .btn{
+    position:fixed; left:50%; transform:translateX(-50%);
+    width:min(68vw, 340px);
+    text-align:center; padding:1.0rem 1.0rem;
+    border-radius:15px; font-weight:800; letter-spacing:.4px;
+    cursor:pointer;
+    backdrop-filter:blur(2px); box-shadow:0 6px 30px #0006;
+
+    opacity:0; visibility:hidden; pointer-events:none;
+    transition:opacity .22s ease, transform .15s ease, visibility 0s linear .22s;
+
+    font-size:1.04rem; line-height:1.15;
+    white-space:normal; word-break:keep-all;
+
+    text-transform:none; /* sentence-case default */
+  }
+  .btn.show{
+    opacity:1; visibility:visible; pointer-events:auto;
+    transition:opacity .22s ease, transform .15s ease;
+  }
+  .btn:active{ transform:translateX(-50%) scale(.97) }
+  .btn-primary{ background:var(--neon); color:#000; border:none; box-shadow:0 0 22px rgba(42,245,210,.42) }
+  .btn-ghost{ background:rgba(42,245,210,.08); color:#9bb7b2; border:1px solid rgba(42,245,210,.15) }
+  .btn--primary{ bottom:calc(28 * var(--vh) + var(--sab)) }
+  .btn--secondary{ bottom:calc(18 * var(--vh) + var(--sab)) }
+
+  .btn-title{
+    display:block;
+    text-transform:uppercase;  /* jen titulek caps */
+    letter-spacing:.4px;
+  }
+  .btn-subtitle{
+    display:block;
+    font-size:clamp(12px,2.8vmin,12px);
+    line-height:1.18;
+    margin-top:.28rem;
+    opacity:.9;
+    font-weight:600;
+    text-transform:none;
+  }
+  .btn-small{ font-size:.92rem; opacity:.75; }
+
+  /* Slow badge */
+/* Slow badge — tlačítko POD kruhem */
+.slow-badge{
+  position: fixed;
+  left: 50%;
+  transform: translate(-50%, 0);
+  top: var(--slow-badge-top, 180px);
+  z-index: 12;
+
+  pointer-events: auto;
+  cursor: pointer;
+
+  /* vzhled tlačítka */
+  background: rgba(11, 15, 16, 0.92);
+  border: 2px solid var(--neon);
+  border-radius: 999px;
+  text-align: center;
+
+  padding: .70rem 1.0rem;            /* větší plocha */
+  font-weight: 800;
+  letter-spacing: .35px;
+  font-size: clamp(13px, 3.4vmin, 16px); /* větší text */
+  text-transform: uppercase;         /* víc „CTA“ vibe */
+  color: #eaf7f4;
+
+  box-shadow:
+    0 8px 24px rgba(0,0,0,.35),
+    0 0 18px rgba(42,245,210,.22);
+  outline: none;
+
+  display: none;
+  transition:
+    transform .12s ease,
+    box-shadow .15s ease,
+    background .15s ease,
+    opacity .2s ease;
+}
+.slow-badge.show{
+  display: inline-block;
+}
+
+/* interakce */
+.slow-badge:hover{
+  box-shadow:
+    0 10px 28px rgba(0,0,0,.4),
+    0 0 24px rgba(42,245,210,.35);
+}
+.slow-badge:active{
+  transform: translate(-50%, 0) scale(.97);
+}
+.slow-badge:focus-visible{
+  box-shadow:
+    0 0 0 3px rgba(42,245,210,.35),
+    0 8px 24px rgba(0,0,0,.35);
+}
+
+
+  /* Toast */
+  .toast{
+    position:fixed; left:50%; transform:translateX(-50%);
+    bottom:calc(14px + var(--sab)); background:#0b0f10e6; color:#eaf7f4;
+    border:1px solid #1f2a2e; border-radius:999px; padding:.5rem .9rem; opacity:0; transition:opacity .2s ease; z-index:10;
+  }
+  .toast.show{ opacity:1 }
+
+  /* extra mobilní ladění pro extrémně úzké telefony (≤360px) */
+  @media (max-width: 360px){
+    .row{ gap:6px; }
+    .pill-stack{ padding:.28rem .32rem; }
+    .btn{ width:min(74vw, 320px); padding:.95rem .9rem; }
+    .btn--primary{ bottom:calc(27 * var(--vh) + var(--sab)) }
+    .btn--secondary{ bottom:calc(17 * var(--vh) + var(--sab)) }
+  }

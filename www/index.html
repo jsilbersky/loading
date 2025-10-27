@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0e1213">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="format-detection" content="telephone=no">
+  <title>Loading Rush</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Připojený externí CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <canvas id="game" aria-label="Snap the Gap"></canvas>
+
+  <div class="hud">
+    <div class="row" id="topRow">
+      <div class="pill pill-stack" id="scorePill">
+        <div class="pill-label">Score:</div>
+        <div class="pill-value" id="scoreVal">0</div>
+      </div>
+
+      <div class="pill pill-stack pill--accent link" id="worldPill" title="Open leaderboard">
+        <div class="pill-label">World Record:</div>
+        <div class="pill-value" id="worldVal">—</div>
+      </div>
+
+      <div class="pill pill-stack" id="bestPill">
+        <div class="pill-label">Your Record:</div>
+        <div class="pill-value" id="bestVal">0</div>
+      </div>
+    </div>
+
+    <div class="row tiny fade" style="justify-content:center; font-size:.75rem; line-height:1.2; opacity:.5;">
+      <div class="pill" style="text-align:center;">
+        PERFECT +3 • GOOD +2 • OK +1<br>
+        Perfect 3 in a row → ×3 • Good 3 in a row → ×2
+      </div>
+    </div>
+
+    <div class="center" id="centerText">
+      <div class="big" id="bigText">
+        <span class="title-stack">
+          <span class="title-loading">LOADING</span>
+          <span class="title-rush">RUSH</span>
+        </span>
+      </div>
+      <div class="subtitle" id="subText">TAP ANYWHERE TO START</div>
+    </div>
+
+    <div id="howto" class="howto" aria-live="polite">
+      <div class="howto-title">HOW TO PLAY</div>
+      <div class="howto-body">
+        Tap when
+        <span class="icon-tri" role="img" aria-label="triangle">
+          <svg viewBox="0 0 32 44" aria-hidden="true" focusable="false" preserveAspectRatio="xMidYMid meet">
+            <path d="M16 42 L2 6 H30 Z"/>
+          </svg>
+        </span>
+        is at center of the gap.<br>
+        Closer = more points.
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA tlačítka -->
+  <button class="btn btn-primary btn--primary" id="playBonusBtn">
+    <span class="btn-title">PLAY AGAIN + BONUS</span>
+    <span class="btn-subtitle">10 s Slow Motion next game. Short ad now.</span>
+  </button>
+
+  <button class="btn btn-ghost btn--secondary btn-small" id="playNoBonusBtn">
+    Play Again – No Bonus
+  </button>
+
+  <div id="slowBadge" class="slow-badge" role="button" aria-label="Activate slow motion">
+    Activate Slow Motion 10 s
+  </div>
+
+  <!-- Připojený externí JS -->
+  <script src="game.js"></script>
+</body>
+</html>

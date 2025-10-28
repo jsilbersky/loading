@@ -53,6 +53,7 @@ public class MainActivity extends BridgeActivity {
     public void onResume() {
         super.onResume();
         injectAdMobFacade(); // znovu “přilepí” polyfill, kdyby se WebView obnovilo
+        
     }
 
     /** Vstříkne do stránky objekt window.Capacitor.Plugins.AdMob s očekávanými metodami. */

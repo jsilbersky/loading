@@ -39,6 +39,21 @@ const AD_UNIT_ID = IS_TESTING
     document.documentElement.style.setProperty('--vh', (h*0.01)+'px');
   }
 
+  // Umístí .howto těsně pod horní HUD (topRow) s mezerou --howto-gap
+function positionHowTo(){
+  const howtoEl = document.getElementById('howto');
+  const topRow  = document.getElementById('topRow');
+  if(!howtoEl || !topRow) return;
+
+  // čte CSS proměnnou (fallback 14 px, kdyby chyběla)
+  const gapVar = getComputedStyle(document.documentElement).getPropertyValue('--howto-gap');
+  const gap = parseFloat(gapVar) || 14;
+
+  const y = Math.round(topRow.getBoundingClientRect().bottom + gap);
+  document.documentElement.style.setProperty('--howto-top', `${y}px`);
+}
+
+
 function updateSlowBadgePos(){
   // kolik CSS pixelů pod kruhem má badge být (snadno laditelné)
   const SLOW_BADGE_GAP_CSSPX = 90; 
@@ -67,12 +82,32 @@ function resize(){
 
   // >>> aktualizace pozice badge POD kruhem <<<
   updateSlowBadgePos();
+  positionHowTo();
 }
 
 window.addEventListener('resize', resize, { passive:true });
 if (window.visualViewport){
   visualViewport.addEventListener('resize', resize, { passive:true });
 }
+
+// spočítej po načtení stránky
+window.addEventListener('load', positionHowTo, { passive:true });
+
+// po otočení telefonu (nech layout „sednout“)
+window.addEventListener('orientationchange', () => {
+  setTimeout(positionHowTo, 50);
+}, { passive:true });
+
+// když se mění vizuální viewport (klávesnice / adresní lišta)
+if (window.visualViewport){
+  visualViewport.addEventListener('resize', positionHowTo, { passive:true });
+}
+
+// po načtení fontu (může změnit výšku top HUDu)
+if (document.fonts?.ready) {
+  document.fonts.ready.then(positionHowTo);
+}
+
 
 (function applyStatusBarOffsets(){
   const isAndroid = window?.Capacitor?.getPlatform?.() === 'android';

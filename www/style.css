@@ -3,6 +3,7 @@
     --ok:#8fd4ff; --good:#73ffa9; --perfect:#fff7a1; --warn:#ff6b6b;
     --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
     --vh: 1vh;
+    --howto-gap: clamp(18px, 4vmin, 28px);
 
     /* jednotné písmo pro celé UI */
     --font-sans: "Oxanium", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
@@ -112,7 +113,7 @@
   /* how-to bublina */
   .howto{
     position:fixed; left:50%; transform:translateX(-50%);
-    top:clamp(84px, 16vh, 140px);
+    top: var(--howto-top, 140px);
     width:clamp(210px,58vw,260px); z-index:5; pointer-events:none;
     background:rgba(20,30,32,.92); color:#eaf7f4;
     border:1px solid rgba(42,245,210,.22); border-radius:14px; padding:12px 14px; text-align:center;

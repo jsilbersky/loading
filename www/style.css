@@ -223,6 +223,42 @@
 }
 
 
+/* Plynulé zobrazení/skrývání */
+#topRow,
+#worldPill,
+.row.tiny.fade,
+.slow-badge {
+  transition: opacity .18s ease;
+}
+
+/* Během hry skryj HUD a spodní info pill */
+body.hud-hidden #topRow,
+body.hud-hidden #worldPill,
+body.hud-hidden .row.tiny.fade {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Slow badge:
+   - defaultně skrytá (display:none)
+   - když je odměna → .show => zobraz i během hry */
+body.hud-hidden .slow-badge {           /* fallback: schovat */
+  opacity: 0;
+  pointer-events: none;
+}
+body.hud-hidden .slow-badge.show {      /* override: povolit, pokud je odměna */
+  opacity: 1;
+  pointer-events: auto;
+}
+
+
+
+/* volitelné – když nejsme ve hře, ať se zobrazí plynule */
+#topRow, #worldPill {
+  transition: opacity .18s ease;
+}
+
+
   /* Toast */
   .toast{
     position:fixed; left:50%; transform:translateX(-50%);

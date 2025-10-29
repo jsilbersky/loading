@@ -134,6 +134,7 @@ if (document.fonts?.ready) {
   let score=0;
   let best=Number(localStorage.getItem('stg_best')||0);
   let canTap=true;
+  let scoreFlashT = 0;
 
   const topRow=document.getElementById('topRow');
   const scoreVal=document.getElementById('scoreVal');
@@ -361,7 +362,8 @@ async function prewarmTick(){
       if(d<=deg(2)){ grade='perfect'; points=3; color=getCss('--perfect'); }
       else if(d<=deg(8)){ grade='good'; points=2; color=getCss('--good'); }
 
-      score += points; canTap=false; scoreVal.textContent = String(score);
+      score += points; canTap=false; scoreVal.textContent = String(score); 
+      scoreFlashT = 1.2;     // ukaž mini-skóre na 1,2 s
 
       if(grade==='perfect'){ perfectStreak++; goodStreak=0; }
       else if(grade==='good'){ goodStreak++; perfectStreak=0; }
@@ -379,7 +381,14 @@ async function prewarmTick(){
       }
 
       flash=1.0; if(navigator.vibrate) navigator.vibrate(12); beep(grade);
-      if(!streakAwarded){ resultText={txt:grade.toUpperCase(), color, timer:.9}; }
+      const label = (grade === 'perfect') ? 'PERFECT'
+            : (grade === 'good')    ? 'GOOD'
+            : 'OK';
+
+if (!streakAwarded) {
+  resultText = { txt: `${label}  +${points}`, color, timer: 0.9 };
+}
+
 
       freezeT=0.50;
       gap = Math.max(gap * 0.94, gapMin);
@@ -487,6 +496,8 @@ function startGame(){
 
     resultText=null; flash=0; shake=0; speedScale=1; jitterT=0; freezeT=0; pendingAngle=null;
     playerAngle=-Math.PI/2; perfectStreak=0; goodStreak=0; canTap=true;
+    document.body.classList.add('hud-hidden'); // schovej HUD i pilulku během hry
+
 
 // UI
 if (logoEl) logoEl.style.display = 'none';
@@ -530,6 +541,7 @@ function gameOver(){
   clearInterval(slowTimer); slowTimer = null;
   slowBadge.classList.remove('show');      // okamžitě zmizí
   // --------------------------------------------
+document.body.classList.remove('hud-hidden'); // po konci hry je zase ukaž
 
   fadeOutMusic();
 

@@ -1,6 +1,8 @@
 package com.jsilb.loadingrush;
 
 import android.os.Bundle;
+import android.view.View;
+import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 
@@ -37,6 +39,17 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // ===== FULLSCREEN + nezhasínání displeje =====
+        getWindow().setFlags(
+                WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                WindowManager.LayoutParams.FLAG_FULLSCREEN
+        );
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        // Nastavit immersive sticky režim (schovat status + nav bar)
+        applyImmersiveMode();
+
+        // ===== PŮVODNÍ KÓD =====
         webView = getBridge().getWebView();
 
         // AdMob init
@@ -52,8 +65,29 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onResume() {
         super.onResume();
+        // po návratu do app znovu přepnout immersive (např. po reklamě / alt-tab)
+        applyImmersiveMode();
         injectAdMobFacade(); // znovu “přilepí” polyfill, kdyby se WebView obnovilo
-        
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        // kdykoli získáme focus, obnovíme immersive režim
+        if (hasFocus) applyImmersiveMode();
+    }
+
+    /** Nastaví systémové UI do immersive sticky fullscreen módu. */
+    private void applyImmersiveMode() {
+        final View decorView = getWindow().getDecorView();
+        decorView.setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                        | View.SYSTEM_UI_FLAG_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+        );
     }
 
     /** Vstříkne do stránky objekt window.Capacitor.Plugins.AdMob s očekávanými metodami. */
@@ -100,6 +134,8 @@ public class MainActivity extends BridgeActivity {
             public void onAdDismissedFullScreenContent() {
                 emit("onRewardedVideoAdDismissed", "{}");
                 rewardedAd = null; // po zavření invalidujeme
+                // po zavření reklamy často zmizí immersive -> obnovit
+                applyImmersiveMode();
             }
 
             @Override
@@ -107,6 +143,7 @@ public class MainActivity extends BridgeActivity {
                 emit("onRewardedVideoAdFailedToShow",
                         "{\"code\":" + adError.getCode() + ",\"message\":\"" + esc(adError.getMessage()) + "\"}");
                 rewardedAd = null;
+                applyImmersiveMode();
             }
         });
     }

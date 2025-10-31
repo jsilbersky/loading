@@ -139,8 +139,6 @@ if (document.fonts?.ready) {
   const topRow=document.getElementById('topRow');
   const scoreVal=document.getElementById('scoreVal');
   const bestVal=document.getElementById('bestVal');
-  const worldVal=document.getElementById('worldVal');
-  const worldPill=document.getElementById('worldPill');
   const bigText=document.getElementById('bigText');
   const subText=document.getElementById('subText');
   const howto=document.getElementById('howto');
@@ -152,7 +150,6 @@ if (document.fonts?.ready) {
   const slowBadge=document.getElementById('slowBadge');
 
   bestVal.textContent  = String(best);
-  worldVal.textContent = '—';
 
   // visuals
   let flash=0, resultText=null, shake=0, freezeT=0, pendingAngle=null;
@@ -409,11 +406,6 @@ if (!streakAwarded) {
   canvas.addEventListener('pointerdown', onPress, {passive:true});
   window.addEventListener('keydown', e=>{ if(e.repeat) return; if(e.code==='Space'||e.code==='Enter') onPress(); });
 
-  /* Top-row: World → leaderboard (placeholder) */
-  worldPill.addEventListener('click', () => {
-    if (state !== 'over') return;
-    toast('Leaderboard coming soon.');
-  });
 
   /* Bottom CTAs */
 function setDualCTA(){ 

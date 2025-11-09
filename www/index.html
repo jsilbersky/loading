@@ -2,34 +2,29 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-  <meta name="theme-color" content="#0a0a0a">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0a0514">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="format-detection" content="telephone=no">
   <title>Loading Rush</title>
 
-  <!-- System font first for iOS look; Oxanium kept only as fallback for canvas text -->
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;600;700;800&display=swap" rel="stylesheet">
 
-  <!-- App icon / mask (optional) -->
-  <link rel="apple-touch-icon" href="icon.png">
-  <link rel="mask-icon" href="icon.svg" color="#0a84ff">
-  <link rel="preload" href="logo.png" as="image">
-  <link rel="preload" href="music.mp3" as="audio">
-
+  <!-- Styles -->
   <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-  <!-- Game Surface -->
-  <canvas id="game" aria-label="Snap the Gap"></canvas>
+  <!-- Game Canvas -->
+  <canvas id="game" aria-label="Loading Rush"></canvas>
 
-  <!-- HUD / UI -->
+  <!-- Share Canvas (hidden) -->
+  <canvas id="shareCanvas" width="1080" height="1920"></canvas>
+
+  <!-- HUD -->
   <div class="hud" aria-live="polite">
     <div class="row" id="topRow">
       <div class="pill pill-stack" id="scorePill">
@@ -38,20 +33,21 @@
       </div>
 
       <div class="pill pill-stack" id="bestPill">
-        <div class="pill-label">Your Record</div>
+        <div class="pill-label">Best</div>
         <div class="pill-value" id="bestVal">0</div>
       </div>
     </div>
 
-    <div class="row tiny fade" style="justify-content:center; line-height:1.2;">
-      <div class="pill" style="text-align:center;">
-        PERFECT +3 • GOOD +2 • OK +1<br>
-        3× Perfect → ×3 • 3× Good → ×2
-      </div>
-    </div>
+<div class="row" style="justify-content: center;">
+  <div class="score-guide">
+    PERFECT +3 • GOOD +2 • OK +1<br>
+    3X PERFECT = SCORE ×3<br>
+    3X GOOD = SCORE ×2
+  </div>
+</div>
 
-    <div class="center" id="centerText" role="heading" aria-level="1">
-      <img id="logo" class="logo" src="logo.png" alt="Loading Rush logo" loading="eager">
+    <div class="center" id="centerText">
+      <img id="logo" class="logo" src="logo.png" alt="Loading Rush" loading="eager">
       <div class="big" id="bigText">
         <span class="title-stack">
           <span class="title-loading">LOADING</span>
@@ -65,31 +61,71 @@
       <div class="howto-title">How to Play</div>
       <div class="howto-body">
         Tap when
-        <span class="icon-tri" role="img" aria-label="triangle">
-          <svg viewBox="0 0 32 44" aria-hidden="true" focusable="false" preserveAspectRatio="xMidYMid meet">
+        <span class="icon-tri">
+          <svg viewBox="0 0 32 44" aria-hidden="true">
             <path d="M16 42 L2 6 H30 Z"/>
           </svg>
         </span>
-        the triangle is centered in the gap. Closer = more points.
+        is in the center of the gap. Closer = More Points!
       </div>
     </div>
   </div>
 
-  <!-- CTAs -->
-  <button class="btn btn-primary btn--primary" id="playBonusBtn" aria-live="polite">
-    <span class="btn-title">Play Again + Bonus</span>
-    <span class="btn-subtitle">10 s Slow Motion next game. Short ad now.</span>
-  </button>
-
-  <button class="btn btn-ghost btn--secondary btn-small" id="playNoBonusBtn" aria-live="polite">
-    Play Again — No Bonus
-  </button>
-
-  <!-- Slow Motion capsule -->
-  <div id="slowBadge" class="slow-badge" role="button" aria-label="Activate slow motion">
-    Activate Slow Motion 10 s
+  <!-- Slow Motion Badge -->
+  <div id="slowBadge" class="slow-badge">
+    Activate Slow Motion
   </div>
 
+  <!-- End Modal -->
+  <div id="endModal" class="modal" aria-hidden="true">
+    <div class="modal-overlay" data-close="modal"></div>
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="stat">
+          <div class="label">Score</div>
+          <div class="value" id="modalScore">0</div>
+        </div>
+        <div class="stat">
+          <div class="label">Best</div>
+          <div class="value" id="modalBest">
+            0 <span id="newBestChip" class="chip" hidden>New Best!</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="modalPrimary" class="btn btn-primary">
+          Play again  + bonus
+        </button>
+        <div id="modalPrimarySub" class="subline">
+          Watch a short ad for +10s Slow Motion next game
+        </div>
+
+        <div class="modal-actions-row">
+          <button id="modalSecondary" class="btn btn-secondary">
+            Play again (No Bonus)
+          </button>
+          <button id="modalShare" class="btn btn-secondary btn-icon">
+            Share Score
+          </button>
+        </div>
+      </div>
+
+      <div class="modal-patreon">
+        <div class="patreon-hook">
+          JOIN OUR DISCORD • SHARE YOUR SCORE
+        </div>
+        <a href="https://www.patreon.com/gaminute" class="patreon-cta" target="_blank" rel="noopener">
+          UNLOCK DISCORD ACCESS • $1/MO
+        </a>
+        <div class="patreon-micro">
+          Via Patreon • Cancel anytime • Support an indie dev
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
   <script src="game.js"></script>
 </body>
 </html>

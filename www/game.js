@@ -20,6 +20,81 @@
     ? 'ca-app-pub-3940256099942544/5224354917'
     : 'ca-app-pub-xxxxxxxxxxxxxxxx/xxxxxxxxxx';
 
+  const DAILY_GOAL_MIN = 30;
+  const DAILY_GOAL_MAX = 60;
+
+  /* ========= GAME MODE ========= */
+  let gameMode = 'normal'; // 'normal' | 'daily'
+
+  /* ========= DAILY SYSTEM ========= */
+  function getUTCDateString() {
+    const d = new Date();
+    return `${d.getUTCFullYear()}-${d.getUTCMonth() + 1}-${d.getUTCDate()}`;
+  }
+
+  function getDailyGoal() {
+    const dateStr = getUTCDateString();
+    let hash = 0;
+    for (let i = 0; i < dateStr.length; i++) {
+      hash = ((hash << 5) - hash) + dateStr.charCodeAt(i);
+      hash = hash & hash;
+    }
+    const seed = Math.abs(hash);
+    const range = DAILY_GOAL_MAX - DAILY_GOAL_MIN;
+    return DAILY_GOAL_MIN + (seed % (range + 1));
+  }
+
+  function getTimeUntilResetUTC() {
+    const now = new Date();
+    const tomorrow = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() + 1,
+      0, 0, 0, 0
+    ));
+    const diff = tomorrow - now;
+    const hours = Math.floor(diff / 3600000);
+    const mins = Math.floor((diff % 3600000) / 60000);
+    const secs = Math.floor((diff % 60000) / 1000);
+    return {
+      hours,
+      mins,
+      secs,
+      formatted: `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+    };
+  }
+
+  let dailyGoal = getDailyGoal();
+  let dailyBestToday = 0;
+  let dailyDateKey = getUTCDateString();
+
+  function loadDailyData() {
+    const stored = localStorage.getItem('lr_daily_data');
+    if (stored) {
+      try {
+        const data = JSON.parse(stored);
+        if (data.date === dailyDateKey) {
+          dailyBestToday = data.best || 0;
+        } else {
+          dailyBestToday = 0;
+          saveDailyData();
+        }
+      } catch (e) {
+        dailyBestToday = 0;
+      }
+    }
+  }
+
+  function saveDailyData() {
+    localStorage.setItem('lr_daily_data', JSON.stringify({
+      date: dailyDateKey,
+      best: dailyBestToday,
+      goal: dailyGoal
+    }));
+  }
+
+  loadDailyData();
+
   /* ========= SLOW MOTION ========= */
   const BASE_OMEGA = deg(160);
   const MAX_OMEGA = deg(650);
@@ -93,21 +168,35 @@
   const topRow = document.getElementById('topRow');
   const scoreVal = document.getElementById('scoreVal');
   const bestVal = document.getElementById('bestVal');
+  const bestLabel = document.getElementById('bestLabel');
   const bigText = document.getElementById('bigText');
-  const subText = document.getElementById('subText');
   const howto = document.getElementById('howto');
   const logoEl = document.getElementById('logo');
   const slowBadge = document.getElementById('slowBadge');
+  const modeSelector = document.getElementById('modeSelector');
+  const modeBadge = document.getElementById('modeBadge');
+  const normalModeBtn = document.getElementById('normalModeBtn');
+  const dailyModeBtn = document.getElementById('dailyModeBtn');
+
+  // Daily UI refs
+  const dailyGoalDisplay = document.getElementById('dailyGoalDisplay');
+  const dailyBestDisplay = document.getElementById('dailyBestDisplay');
+  const dailyResetDisplay = document.getElementById('dailyResetDisplay');
 
   // Modal refs
   const endModal = document.getElementById('endModal');
   const modalScore = document.getElementById('modalScore');
   const modalBest = document.getElementById('modalBest');
+  const modalBestLabel = document.getElementById('modalBestLabel');
   const newBestChip = document.getElementById('newBestChip');
   const modalPrimary = document.getElementById('modalPrimary');
   const modalPrimarySub = document.getElementById('modalPrimarySub');
   const modalSecondary = document.getElementById('modalSecondary');
   const modalShare = document.getElementById('modalShare');
+  const dailyGoalStatus = document.getElementById('dailyGoalStatus');
+  const goalStatusText = document.getElementById('goalStatusText');
+  const modalResetDisplay = document.getElementById('modalResetDisplay');
+  const backToMenuLink = document.getElementById('backToMenuLink');
 
   // Visuals
   let flash = 0, resultText = null, shake = 0, freezeT = 0, pendingAngle = null;
@@ -131,6 +220,58 @@
   let listenersBound = false;
 
   bestVal.textContent = String(best);
+
+  /* ========= UPDATE DAILY UI ========= */
+  function updateDailyUI() {
+    dailyGoalDisplay.textContent = `${dailyGoal}`;
+    dailyBestDisplay.textContent = String(dailyBestToday);
+    const reset = getTimeUntilResetUTC();
+    dailyResetDisplay.textContent = reset.formatted;
+  }
+
+  updateDailyUI();
+
+  // Update countdown every second
+  setInterval(() => {
+    if (state === 'menu' || state === 'over') {
+      const newDate = getUTCDateString();
+      if (newDate !== dailyDateKey) {
+        dailyDateKey = newDate;
+        dailyGoal = getDailyGoal();
+        dailyBestToday = 0;
+        saveDailyData();
+      }
+      updateDailyUI();
+      
+      if (state === 'over' && gameMode === 'daily') {
+        const reset = getTimeUntilResetUTC();
+        if (modalResetDisplay) {
+          modalResetDisplay.textContent = reset.formatted;
+        }
+      }
+    }
+  }, 1000);
+
+  /* ========= MODE SELECTOR ========= */
+  normalModeBtn.addEventListener('click', () => {
+    gameMode = 'normal';
+    handleModeSelected();
+  });
+
+  dailyModeBtn.addEventListener('click', () => {
+    gameMode = 'daily';
+    handleModeSelected();
+  });
+
+  function handleModeSelected() {
+    if (howto) howto.classList.add('hide');
+    modeSelector.classList.add('hide');
+    playMusic();
+    
+    setTimeout(() => {
+      startGame();
+    }, 300);
+  }
 
   /* ========= AUDIO ========= */
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -367,7 +508,6 @@
   /* ========= GAME LOGIC ========= */
   function onPress() {
     if (state === 'menu') {
-      handleFirstTapStart();
       return;
     }
     
@@ -454,12 +594,6 @@
     if (e.code === 'Space' || e.code === 'Enter') onPress();
   });
 
-  function handleFirstTapStart() {
-    if (howto) howto.classList.add('hide');
-    playMusic();
-    startGame();
-  }
-
   function showHomeTitle() {
     if (!bigText) return;
     if (logoEl) logoEl.style.display = 'block';
@@ -469,7 +603,8 @@
         <span class="title-rush">RUSH</span>
       </span>
     `;
-    if (subText) subText.textContent = 'Tap anywhere to start';
+    if (modeSelector) modeSelector.classList.remove('hide');
+    if (modeBadge) modeBadge.hidden = true;
   }
 
   function startGame() {
@@ -500,11 +635,22 @@
 
     if (logoEl) logoEl.style.display = 'none';
     bigText.textContent = '';
-    if (subText) subText.textContent = '';
 
     topRow.classList.remove('blink');
 
-    // Carry rewarded bonus
+    if (gameMode === 'daily') {
+      if (modeBadge) {
+        modeBadge.hidden = false;
+        modeBadge.textContent = '🏆 DAILY CHALLENGE';
+      }
+      if (bestLabel) bestLabel.textContent = 'Best Today';
+      bestVal.textContent = String(dailyBestToday);
+    } else {
+      if (modeBadge) modeBadge.hidden = true;
+      if (bestLabel) bestLabel.textContent = 'Best';
+      bestVal.textContent = String(best);
+    }
+
     if (rewardGrantedPending) {
       rewardGrantedPending = false;
       slowAvailable = true;
@@ -526,11 +672,11 @@
     clearInterval(slowTimer);
     slowTimer = null;
     slowBadge.classList.remove('show');
+    if (modeBadge) modeBadge.hidden = true;
     document.body.classList.remove('hud-hidden');
 
     fadeOutMusic();
 
-    // Red flash
     document.documentElement.style.setProperty('--neon', '#ff6b6b');
     setTimeout(() => document.documentElement.style.setProperty('--neon', '#2af5d2'), 250);
 
@@ -539,12 +685,16 @@
     beep('fail');
     shake = 12;
 
-    // Update best
-    best = Math.max(best, score);
-    localStorage.setItem('lr_best', best);
-    bestVal.textContent = String(best);
+    if (gameMode === 'daily') {
+      dailyBestToday = Math.max(dailyBestToday, score);
+      saveDailyData();
+      bestVal.textContent = String(dailyBestToday);
+    } else {
+      best = Math.max(best, score);
+      localStorage.setItem('lr_best', best);
+      bestVal.textContent = String(best);
+    }
 
-    // Show GAME OVER
     if (bigText) bigText.textContent = 'GAME OVER';
     setTimeout(() => {
       if (state === 'over') bigText.textContent = '';
@@ -590,8 +740,33 @@
   /* ========= MODAL ========= */
   function openEndModal() {
     modalScore.textContent = String(score);
-    modalBest.textContent = String(best);
-    newBestChip.hidden = !(score === best);
+    
+    const currentBest = gameMode === 'daily' ? dailyBestToday : best;
+    modalBest.textContent = String(currentBest);
+    
+    if (modalBestLabel) {
+      modalBestLabel.textContent = gameMode === 'daily' ? 'Best Today' : 'Best';
+    }
+    
+    newBestChip.hidden = !(score === currentBest && score > 0);
+
+    if (gameMode === 'daily') {
+      dailyGoalStatus.hidden = false;
+      const reached = dailyBestToday >= dailyGoal; // kontrola za celý dnešek
+
+      if (reached) {
+        goalStatusText.textContent = `Score at least: ${dailyGoal} — COMPLETED 🎉`;
+        goalStatusText.className = 'goal-status-text completed';
+      } else {
+        goalStatusText.textContent = `Score at least: ${dailyGoal} — NOT REACHED`;
+        goalStatusText.className = 'goal-status-text not-reached';
+      }
+      
+      const reset = getTimeUntilResetUTC();
+      modalResetDisplay.textContent = reset.formatted;
+    } else {
+      dailyGoalStatus.hidden = true;
+    }
 
     endModal.classList.add('open');
     endModal.setAttribute('aria-hidden', 'false');
@@ -636,132 +811,143 @@
     startGame();
   };
 
-modalShare.onclick = async () => {
-  await shareScoreNative();
-};
+  modalShare.onclick = async () => {
+    await shareScoreNative();
+  };
 
+  backToMenuLink.onclick = (e) => {
+    e.preventDefault();
+    if (state !== 'over') return;
+    
+    closeEndModal();
+    state = 'menu';
+    showHomeTitle();
+    updateDailyUI();
+  };
 
-/* ========= NATIVE SHARE (Capacitor) ========= */
-
-// 1) Pomocné funkce
-function dataUrlToBase64(dataUrl) {
-  return dataUrl.replace(/^data:image\/png;base64,/, '');
-}
-
-function loadImage(src) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = (e) => reject(e);
-    img.src = src;
-  });
-}
-
-function fitFontPxForWidth(ctx, text, maxWidth, startPx = 240, minPx = 110) {
-  let size = startPx;
-  do {
-    ctx.font = `800 ${size}px Oxanium`;
-    if (ctx.measureText(text).width <= maxWidth) break;
-    size -= 4;
-  } while (size >= minPx);
-  return size;
-}
-
-// 2) Vykreslení šablony + skóre + „SEC/T:“ do #shareCanvas
-async function drawShareToCanvas(score) {
-  const shareCanvas = document.getElementById('shareCanvas');
-  const sctx = shareCanvas.getContext('2d');
-
-  // a) Počkej na font (pokud je k dispozici)
-  try { await (document.fonts?.ready || Promise.resolve()); } catch (_) {}
-
-  // b) Načti šablonu
-  const tpl = await loadImage('loading_rush_score.png');
-
-  // c) Vyčisti a vykresli pozadí šablonou 1080×1920
-  sctx.clearRect(0, 0, 1080, 1920);
-  sctx.drawImage(tpl, 0, 0, 1080, 1920);
-
-  // d) Skóre – střed x=540, baseline y=1120, max šířka 800 px
-  const text = String(score);
-  const maxWidth = 800;
-  const fontPx = fitFontPxForWidth(sctx, text, maxWidth);
-  const grad = sctx.createLinearGradient(0, 950, 0, 1100);
-  grad.addColorStop(0, '#ffffff');
-  grad.addColorStop(1, '#2af5d2');
-
-  sctx.textAlign = 'center';
-  sctx.textBaseline = 'alphabetic';
-  sctx.fillStyle = grad;
-  sctx.shadowColor = 'rgba(42, 245, 210, 0.6)';
-  sctx.shadowBlur = 40;
-  sctx.font = `800 ${fontPx}px Oxanium`;
-  sctx.fillText(text, 540, 1120);
-  sctx.shadowBlur = 0;
-
-  // e) Anti-cheat štítky (SEC + T:)
-  const timestamp = new Date().toISOString(); // čitelná ISO značka
-  const securityHash = btoa(String(score + Date.now())).substring(0, 12);
-
-  sctx.font = '24px Oxanium';
-  sctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-  sctx.textAlign = 'left';
-  sctx.fillText(`SEC:${securityHash}`, 60, 1860);
-  sctx.textAlign = 'right';
-  sctx.fillText(`T:${timestamp}`, 1020, 1860);
-}
-
-// 3) Uložení PNG do CACHE a nativní sdílení
-async function shareScoreNative() {
-  try {
-    // Pluginy
-    const Share = window?.Capacitor?.Plugins?.Share;
-    const Filesystem = window?.Capacitor?.Plugins?.Filesystem;
-
-    if (!Share || !Filesystem) {
-      toast('Native share not available');
-      return;
-    }
-
-    // A) vykresli šablonu + číslo
-    await drawShareToCanvas(score);
-
-    // B) získej base64 PNG
-    const shareCanvas = document.getElementById('shareCanvas');
-    const dataUrl = shareCanvas.toDataURL('image/png', 0.95);
-    const base64 = dataUrlToBase64(dataUrl);
-
-    // C) ulož do CACHE a získaj file:// URI
-    const fileName = `lr_${Date.now()}.png`;
-    const writeRes = await Filesystem.writeFile({
-      path: fileName,
-      data: base64,
-      directory: 'CACHE'
-    });
-    const fileUri = writeRes?.uri;
-    if (!fileUri) {
-      toast('Saving image failed');
-      return;
-    }
-
-    // D) nativní share sheet (posíláme files i url – pro kompatibilitu)
-    await Share.share({
-      title: 'Loading Rush – My Score',
-      text: `I scored ${score} in Loading Rush!`,
-      files: [fileUri],
-      url: fileUri,
-      dialogTitle: 'Share your score'
-    });
-
-    // (volitelné) můžeš soubor smazat po sdílení:
-  await Filesystem.deleteFile({ path: fileName, directory: 'CACHE' });
-
-  } catch (err) {
-    console.error(err);
-    toast('Share failed');
+  /* ========= NATIVE SHARE (Capacitor) ========= */
+  function dataUrlToBase64(dataUrl) {
+    return dataUrl.replace(/^data:image\/png;base64,/, '');
   }
-}
 
+  function loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = (e) => reject(e);
+      img.src = src;
+    });
+  }
+
+  function fitFontPxForWidth(ctx, text, maxWidth, startPx = 240, minPx = 110) {
+    let size = startPx;
+    do {
+      ctx.font = `800 ${size}px Oxanium`;
+      if (ctx.measureText(text).width <= maxWidth) break;
+      size -= 4;
+    } while (size >= minPx);
+    return size;
+  }
+
+  async function drawShareToCanvas(scoreNum, isDaily) {
+    const shareCanvas = document.getElementById('shareCanvas');
+    const sctx = shareCanvas.getContext('2d');
+
+    try {
+      await (document.fonts?.ready || Promise.resolve());
+    } catch (_) {}
+
+    const templateName = isDaily ? 'daily.png' : 'loading_rush_score.png';
+    const tpl = await loadImage(templateName);
+
+    sctx.clearRect(0, 0, 1080, 1920);
+    sctx.drawImage(tpl, 0, 0, 1080, 1920);
+
+    const text = String(scoreNum);
+    const maxWidth = 800;
+    const fontPx = fitFontPxForWidth(sctx, text, maxWidth);
+    const grad = sctx.createLinearGradient(0, 950, 0, 1100);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(1, '#2af5d2');
+
+    sctx.textAlign = 'center';
+    sctx.textBaseline = 'alphabetic';
+    sctx.fillStyle = grad;
+    sctx.shadowColor = 'rgba(42, 245, 210, 0.6)';
+    sctx.shadowBlur = 40;
+    sctx.font = `800 ${fontPx}px Oxanium`;
+    sctx.fillText(text, 540, 1120);
+    sctx.shadowBlur = 0;
+
+    const timestamp = new Date().toISOString();
+    const securityHash = btoa(String(scoreNum + Date.now())).substring(0, 12);
+
+    sctx.font = '24px Oxanium';
+    sctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+    sctx.textAlign = 'left';
+    sctx.fillText(`SEC:${securityHash}`, 60, 1860);
+    sctx.textAlign = 'right';
+    sctx.fillText(`T:${timestamp}`, 1020, 1860);
+  }
+
+  async function shareScoreNative() {
+    try {
+      const Share = window?.Capacitor?.Plugins?.Share;
+      const Filesystem = window?.Capacitor?.Plugins?.Filesystem;
+
+      if (!Share || !Filesystem) {
+        toast('Native share not available');
+        return;
+      }
+
+      const isDaily = (gameMode === 'daily');
+      await drawShareToCanvas(score, isDaily);
+
+      const shareCanvas = document.getElementById('shareCanvas');
+      const dataUrl = shareCanvas.toDataURL('image/png', 0.95);
+      const base64 = dataUrlToBase64(dataUrl);
+
+      const fileName = `lr_${Date.now()}.png`;
+      const writeRes = await Filesystem.writeFile({
+        path: fileName,
+        data: base64,
+        directory: 'CACHE'
+      });
+      
+      const fileUri = writeRes?.uri;
+      if (!fileUri) {
+        toast('Saving image failed');
+        return;
+      }
+
+      let shareText;
+      if (isDaily) {
+        const reached = score >= dailyGoal;
+        const dateStr = getUTCDateString();
+        if (reached) {
+          shareText = `COMPLETED — I scored ${score} on today's Challenge. Score at least: ${dailyGoal} (UTC ${dateStr})!`;
+        } else {
+          shareText = `I scored ${score} on today's Challenge.  Score at least: ${dailyGoal} (UTC ${dateStr}).`;
+        }
+      } else {
+        shareText = `I scored ${score} in Loading Rush!`;
+      }
+
+      await Share.share({
+        title: 'Loading Rush – My Score',
+        text: shareText,
+        files: [fileUri],
+        url: fileUri,
+        dialogTitle: 'Share your score'
+      });
+
+      await Filesystem.deleteFile({ path: fileName, directory: 'CACHE' });
+
+    } catch (err) {
+      console.error(err);
+      toast('Share failed');
+    }
+  }
 
   /* ========= RENDER ========= */
   function getCss(name) {
@@ -785,7 +971,6 @@ async function shareScoreNative() {
     const base = THICK * 0.9;
     const height = THICK * 1.15;
     
-    const ctx = canvas.getContext('2d');
     ctx.save();
     ctx.translate(rx, ry);
     ctx.rotate(a + Math.PI);
@@ -832,7 +1017,6 @@ async function shareScoreNative() {
       }
     }
 
-    const ctx = canvas.getContext('2d');
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
@@ -860,7 +1044,6 @@ async function shareScoreNative() {
     const a1 = centerA - gap / 2;
     const a2 = centerA + gap / 2;
 
-    // Base ring with subtle gradient
     const ringGrad = ctx.createLinearGradient(CX - R, CY - R, CX + R, CY + R);
     ringGrad.addColorStop(0, 'rgba(42, 58, 64, 0.4)');
     ringGrad.addColorStop(1, 'rgba(31, 42, 46, 0.6)');
@@ -871,7 +1054,6 @@ async function shareScoreNative() {
     ctx.arc(CX, CY, R, 0, TAU);
     ctx.stroke();
 
-    // Neon arc (glowing)
     const neonColor = getCss('--neon');
     ctx.strokeStyle = neonColor;
     ctx.shadowColor = neonColor;
@@ -883,10 +1065,8 @@ async function shareScoreNative() {
     ctx.shadowBlur = 0;
     ctx.globalAlpha = 1;
 
-    // Player triangle
     drawTriangleAtAngle(playerAngle, R);
 
-    // Floating result text
     if (resultText) {
       resultText.timer -= dt;
       const alpha = clamp(resultText.timer / 0.7, 0, 1);
@@ -905,7 +1085,6 @@ async function shareScoreNative() {
       if (resultText.timer <= 0) resultText = null;
     }
 
-    // Hit flash
     if (flash > 0) {
       const rad = R + (1 - flash) * R * 0.4;
       ctx.strokeStyle = getCss('--neon');
@@ -1020,10 +1199,8 @@ async function shareScoreNative() {
   requestAnimationFrame(tick);
   showHomeTitle();
 
-  // Start prewarming ads on boot
   Reward.startPrewarm();
 
-  // Audio context unlock
   window.addEventListener('pointerdown', () => {
     if (!actx) {
       try {
@@ -1032,7 +1209,6 @@ async function shareScoreNative() {
     }
   }, { once: true, passive: true });
 
-  // Pause audio when hidden
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       try {
@@ -1045,11 +1221,4 @@ async function shareScoreNative() {
   window.addEventListener('pagehide', () => {
     pauseMusic();
   }, { passive: true });
-
-  // Close modal on overlay click
-  endModal.addEventListener('click', (e) => {
-    if (e.target.dataset.close === 'modal') {
-      // Don't allow closing modal in 'over' state without playing
-    }
-  });
 })();

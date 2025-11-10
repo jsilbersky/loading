@@ -33,18 +33,24 @@
       </div>
 
       <div class="pill pill-stack" id="bestPill">
-        <div class="pill-label">Best</div>
+        <div class="pill-label" id="bestLabel">Best</div>
         <div class="pill-value" id="bestVal">0</div>
       </div>
     </div>
 
-<div class="row" style="justify-content: center;">
-  <div class="score-guide">
-    PERFECT +3 • GOOD +2 • OK +1<br>
-    3X PERFECT = SCORE ×3<br>
-    3X GOOD = SCORE ×2
-  </div>
+    <div class="row" style="justify-content: center;">
+      <div class="score-guide">
+        PERFECT +3 • GOOD +2 • OK +1<br>
+        3X PERFECT = SCORE ×3<br>
+        3X GOOD = SCORE ×2
+      </div>
+    </div>
+
+    <!-- Mode Badge (visible during gameplay) -->
+<div id="modeBadge" class="mode-badge" hidden>
+  🏆 DAILY CHALLENGE
 </div>
+
 
     <div class="center" id="centerText">
       <img id="logo" class="logo" src="logo.png" alt="Loading Rush" loading="eager">
@@ -54,7 +60,30 @@
           <span class="title-rush">RUSH</span>
         </span>
       </div>
-      <div class="subtitle" id="subText">Tap anywhere to start</div>
+      
+      <!-- Mode Selector (visible on menu) -->
+      <div id="modeSelector" class="mode-selector">
+        <button id="normalModeBtn" class="mode-btn mode-btn-normal">
+          <div class="mode-btn-icon">⚡</div>
+          <div class="mode-btn-label">Arcade Mode</div>
+        </button>
+        
+        <button id="dailyModeBtn" class="mode-btn mode-btn-daily">
+          <div class="mode-btn-header">
+            <div class="mode-btn-icon">🏆</div>
+            <div class="mode-btn-label">Daily Challenge</div>
+          </div>
+          <div class="mode-btn-info">
+            <div class="daily-info-row">
+              <span>Score at least: <strong id="dailyGoalDisplay">0</strong></span>
+              <span>Best Today: <strong id="dailyBestDisplay">0</strong></span>
+            </div>
+            <div class="daily-reset">
+              New challenge in: <span id="dailyResetDisplay">--:--:--</span> (UTC)
+            </div>
+          </div>
+        </button>
+      </div>
     </div>
 
     <div id="howto" class="howto">
@@ -86,16 +115,26 @@
           <div class="value" id="modalScore">0</div>
         </div>
         <div class="stat">
-          <div class="label">Best</div>
+          <div class="label" id="modalBestLabel">Best</div>
           <div class="value" id="modalBest">
             0 <span id="newBestChip" class="chip" hidden>New Best!</span>
           </div>
         </div>
       </div>
 
+      <!-- Daily Goal Status (only shown in Daily mode) -->
+      <div id="dailyGoalStatus" class="daily-goal-status" hidden>
+        <div class="goal-status-text" id="goalStatusText">
+          Score at least: 0 — NOT REACHED
+        </div>
+        <div class="goal-reset-text">
+          New challenge in <span id="modalResetDisplay">--:--:--</span> (UTC)
+        </div>
+      </div>
+
       <div class="modal-actions">
         <button id="modalPrimary" class="btn btn-primary">
-          Play again  + bonus
+          Play again + bonus
         </button>
         <div id="modalPrimarySub" class="subline">
           Watch a short ad for +10s Slow Motion next game
@@ -113,7 +152,7 @@
 
       <div class="modal-patreon">
         <div class="patreon-hook">
-          JOIN OUR DISCORD • SHARE YOUR SCORE
+          JOIN OUR DISCORD • COMPARE YOUR SCORE
         </div>
         <a href="https://www.patreon.com/gaminute" class="patreon-cta" target="_blank" rel="noopener">
           UNLOCK DISCORD ACCESS • $1/MO
@@ -121,6 +160,11 @@
         <div class="patreon-micro">
           Via Patreon • Cancel anytime • Support an indie dev
         </div>
+      </div>
+
+      <!-- Back to Menu Link -->
+      <div class="modal-back">
+        <a href="#" id="backToMenuLink" class="back-link">← Back to Menu</a>
       </div>
     </div>
   </div>

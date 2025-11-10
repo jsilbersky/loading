@@ -14,13 +14,10 @@
   --sab: env(safe-area-inset-bottom, 0px);
   --vh: 1vh;
   --font: "Oxanium", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial;
-    /* odstíny z barvy loading kruhu */
   --ring-1: #0fe7c4;
-  --ring-2: #2af5d2; /* hlavní neon kruhu */
+  --ring-2: #2af5d2;
   --ring-3: #63ffe3;
   --ring-4: #d7fff7;
-
-  /* Gaminute red pro CTA text */
   --brand-red: #FF3366;
 }
 
@@ -76,6 +73,11 @@ canvas {
   justify-content: space-between; 
   padding: calc(max(16px, var(--sat)) + 8px) clamp(16px, 4vw, 24px) calc(max(16px, var(--sab)) + 12px);
   z-index: 10;
+}
+
+/* Hide top score/best pills on the menu and in-game */
+#topRow {
+  display: none !important;
 }
 
 .row { 
@@ -194,7 +196,6 @@ canvas {
 .title-loading, .title-rush {
   display: block;
   font-size: clamp(28px, 8vmin, 48px);
-  /* multi-stop gradient jen v odstínech kruhu */
   background: linear-gradient(
     135deg,
     var(--ring-1) 0%,
@@ -208,23 +209,6 @@ canvas {
   text-shadow: 0 0 40px rgba(42, 245, 210, 0.35);
 }
 
-.subtitle {
-  margin-top: 12px;
-  font-size: clamp(10px, 3.2vmin, 10px);
-  font-weight: 700;
-  color: var(--brand-red);               /* #FF3366 */
-  text-transform: uppercase;
-  animation: subtitlePulse 2s ease-in-out infinite;
-  opacity: 1;                      
-  text-shadow: 0 0 24px rgba(255, 51, 102, 0.45);
-}
-
-@keyframes subtitlePulse {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: 0.6; }  
-}
-
-
 .big { 
   font-size: clamp(24px, 6vmin, 36px);
   line-height: 1.2;
@@ -232,6 +216,146 @@ canvas {
   font-weight: 800;
   text-shadow: 0 0 30px rgba(255, 107, 107, 0.5);
   color: var(--warn);
+}
+
+/* Mode Selector */
+.mode-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+   margin-top: clamp(260px, 40vh, 440px);
+  pointer-events: auto;
+  opacity: 1;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.mode-selector.hide {
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+}
+
+.mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 24px;
+  border-radius: 16px;
+  font-weight: 800;
+  font-size: clamp(16px, 4vmin, 20px);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  min-width: 280px;
+}
+
+#normalModeBtn {
+  flex-direction: row;   /* ikonka vedle textu */
+}
+
+.mode-btn-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.mode-btn-icon {
+  font-size: clamp(24px, 6vmin, 32px);
+}
+
+.mode-btn-label {
+  line-height: 1;
+}
+
+.mode-btn-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: clamp(11px, 2.8vmin, 13px);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.3px;
+  margin-top: 4px;
+}
+
+.daily-info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.daily-reset {
+  font-size: clamp(10px, 2.4vmin, 12px);
+  opacity: 0.85;
+}
+
+.mode-btn-normal {
+  background: linear-gradient(135deg, var(--neon) 0%, #1de9bf 100%);
+  color: #001a14;
+  box-shadow: 0 0 30px rgba(42, 245, 210, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.mode-btn-normal:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 40px rgba(42, 245, 210, 0.6), 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+.mode-btn-normal:active {
+  transform: scale(0.98);
+}
+
+.mode-btn-daily {
+  background: linear-gradient(135deg, var(--neon-pink) 0%, var(--neon-purple) 100%);
+  color: #ffffff;
+  box-shadow: 0 0 30px rgba(255, 46, 151, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.mode-btn-daily:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 40px rgba(255, 46, 151, 0.6), 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+.mode-btn-daily:active {
+  transform: scale(0.98);
+}
+
+/* Mode Badge (during gameplay) */
+.mode-badge {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(18vh + var(--sat));
+  z-index: 15;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255, 46, 151, 0.2) 0%, rgba(168, 85, 247, 0.2) 100%);
+  border: 2px solid var(--neon-pink);
+  border-radius: 50px;
+  padding: 8px 20px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  font-size: clamp(12px, 3vmin, 14px);
+  text-transform: uppercase;
+  color: #fff;
+  box-shadow: 0 0 30px rgba(255, 46, 151, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  animation: modeBadgePulse 2s ease-in-out infinite;
+}
+
+@keyframes modeBadgePulse {
+  0%, 100% {
+    box-shadow: 0 0 30px rgba(255, 46, 151, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 50px rgba(255, 46, 151, 0.7), 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
 }
 
 /* How to play bubble */
@@ -550,6 +674,39 @@ body.hud-hidden .slow-badge.show {
   letter-spacing: 0.3px;
 }
 
+/* Daily Goal Status */
+.daily-goal-status {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  text-align: center;
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+}
+
+.goal-status-text {
+  font-size: clamp(13px, 3.2vmin, 15px);
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  margin-bottom: 6px;
+}
+
+.goal-status-text.completed {
+  color: var(--perfect);
+}
+
+.goal-status-text.not-reached {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.goal-reset-text {
+  font-size: clamp(11px, 2.6vmin, 13px);
+  opacity: 0.7;
+  letter-spacing: 0.3px;
+}
+
 .modal-actions { 
   display: flex;
   flex-direction: column;
@@ -580,7 +737,7 @@ body.hud-hidden .slow-badge.show {
 }
 
 .patreon-hook { 
-  font-size: clamp(16px, 4vmin, 20px);
+  font-size: clamp(14px, 4vmin, 16px);
   font-weight: 700;
   margin-bottom: 16px;
   background: linear-gradient(135deg, var(--neon-pink) 0%, var(--neon-purple) 100%);
@@ -622,6 +779,26 @@ body.hud-hidden .slow-badge.show {
   line-height: 1.4;
 }
 
+/* Back to Menu */
+.modal-back {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--glass-border);
+  text-align: center;
+}
+
+.back-link {
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: underline;
+  font-size: clamp(12px, 3vmin, 14px);
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  transition: color 0.2s ease;
+}
+
+.back-link:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
 
 /* Toast */
 .toast { 
@@ -629,28 +806,39 @@ body.hud-hidden .slow-badge.show {
   left: 50%;
   transform: translateX(-50%);
   bottom: calc(24px + var(--sab));
-  background: var(--glass);
-  border: 1px solid var(--glass-border);
-  color: #e0f2f1;
-  border-radius: 50px;
-  padding: 12px 24px;
-  opacity: 0;
-  transition: opacity 0.3s ease, transform 0.3s ease;
-  z-index: 200;
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  font-size: clamp(13px, 3.2vmin, 15px);
+  background: var(--glass);}
+
+  /* Titulek do středu kruhu + logo nad něj */
+.center { /* už máš fixed + translate, to necháme */
+  position: fixed;
 }
 
-.toast.show { 
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
+/* --- Title do středu kruhu --- */
+.big {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%); 
+  margin: 0;
+  pointer-events: none;
 }
 
-/* Hidden canvas for share image */
-#shareCanvas {
-  display: none;
+/* --- Logo přesně na střed a o kus výš nad nápis --- */
+#logo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: clamp(70px, 18vmin, 110px);
+  margin-top: -55px;
+  height: auto;
+  pointer-events: none;
+  animation: none; 
 }
+
+/* --- Tlačítka zase pod kruh (přidáme offset) --- */
+.mode-selector {
+  margin-top: calc(clamp(260px, 40vh, 440px) + 100px);
+  /* pokud budou pořád moc vysoko/nízko, uprav jen +100px (např. +120px) */
+}
+
